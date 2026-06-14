@@ -6,7 +6,7 @@ import Dashboard    from './shell/Dashboard';
 import Products     from './shell/Products';
 import SalesOrders     from './shell/SalesOrders';
 import PurchaseOrders  from './shell/Purchaseorders';
-import StockMovements  from './shell/Stockmovements';
+import StockMovements  from './shell/StockMovements';
 import LowStock        from './shell/LowStock';
 import Invoices        from './shell/Invoices';
 import Customers       from './shell/customers';
