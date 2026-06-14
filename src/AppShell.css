@@ -1,0 +1,16 @@
+@import './shell/base.css';
+@import './shell/Sidebar.css';
+@import './shell/Topbar.css';
+@import './shell/Dashboard.css';
+@import './shell/Products.css';
+@import './shell/Modal.css';
+@import './shell/SalesOrders.css';
+@import './shell/PurchaseOrders.css';
+@import './shell/StockMovements.css';
+@import './shell/LowStock.css';
+@import './shell/Invoices.css';
+@import './shell/Customers.css';
+@import './shell/Suppliers.css';
+@import './shell/Reports.css';
+@import './shell/Settings.css';
+@import './shell/Placeholder.css';

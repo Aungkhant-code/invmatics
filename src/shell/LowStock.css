@@ -1,0 +1,542 @@
+/* ── Low Stock page ────────────────────────────────────────────────── */
+.ls-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+}
+
+/* ── Stat bar ──────────────────────────────────────────────────────── */
+.ls-stat-bar {
+  background: #ffffff;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.ls-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 24px;
+}
+
+.ls-stat:first-child { padding-left: 0; }
+
+.ls-stat-val {
+  font-size: 28px;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.ls-stat-val.ls-red    { color: #DC2626; }
+.ls-stat-val.ls-orange { color: #D97706; }
+.ls-stat-val.ls-yellow { color: #F59E0B; }
+
+.ls-stat-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ls-stat-div {
+  width: 1px;
+  height: 32px;
+  background: #E5E7EB;
+  flex-shrink: 0;
+}
+
+.ls-select-all-btn {
+  margin-left: auto;
+  background: none;
+  color: #6B7280;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid #E5E7EB;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.ls-select-all-btn:hover { border-color: #9CA3AF; color: #111827; }
+
+.ls-bulk-btn {
+  margin-left: 8px;
+  background: #0F172A;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 18px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.ls-bulk-btn:hover { background: #1E293B; }
+
+/* ── Section ───────────────────────────────────────────────────────── */
+.ls-section { display: flex; flex-direction: column; gap: 10px; }
+
+.ls-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ls-section-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ls-dot-critical { background: #DC2626; }
+.ls-dot-low      { background: #D97706; }
+.ls-dot-warning  { background: #F59E0B; }
+
+.ls-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.ls-section-desc {
+  font-size: 11px;
+  color: #9CA3AF;
+  font-weight: 400;
+}
+
+.ls-section-count {
+  font-size: 12px;
+  color: #9CA3AF;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+/* ── Panel & table ─────────────────────────────────────────────────── */
+.ls-panel {
+  background: #ffffff;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.ls-table-head {
+  display: grid;
+  grid-template-columns: 36px 1.8fr 0.8fr 1.1fr 1fr 0.7fr 0.8fr 0.8fr 0.9fr 90px;
+  padding: 10px 20px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid #F3F4F6;
+  background: #F8FAFB;
+  align-items: center;
+}
+
+.ls-row {
+  display: grid;
+  grid-template-columns: 36px 1.8fr 0.8fr 1.1fr 1fr 0.7fr 0.8fr 0.8fr 0.9fr 90px;
+  padding: 13px 20px;
+  border-bottom: 1px solid #F3F4F6;
+  align-items: center;
+  font-size: 13px;
+  transition: background 0.1s;
+}
+
+.ls-row:last-child { border-bottom: none; }
+.ls-row:hover      { background: #FFFBEB; }
+.ls-row.ls-selected { background: #FEF9C3; }
+
+/* Checkbox */
+.ls-check-col { display: flex; align-items: center; justify-content: center; }
+
+.ls-checkbox {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: #059669;
+}
+
+/* Product cell */
+.ls-product-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-right: 12px;
+}
+
+.ls-product-name {
+  font-weight: 600;
+  color: #111827;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ls-product-sku {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: #9CA3AF;
+}
+
+.ls-category {
+  font-size: 12px;
+  color: #6B7280;
+  font-weight: 500;
+}
+
+/* Stock level cell */
+.ls-stock-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ls-stock-numbers {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.ls-stock-current {
+  font-size: 18px;
+  font-weight: 800;
+  font-family: 'DM Mono', monospace;
+  line-height: 1;
+}
+
+.ls-sev-critical { color: #DC2626; }
+.ls-sev-low      { color: #D97706; }
+.ls-sev-warning  { color: #F59E0B; }
+
+.ls-stock-sep    { font-size: 11px; color: #9CA3AF; margin: 0 1px; }
+.ls-stock-reorder { font-size: 12px; color: #9CA3AF; }
+
+.ls-bar-wrap {
+  width: 100%;
+  max-width: 80px;
+  height: 4px;
+  background: #F3F4F6;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ls-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+.ls-stock-pct {
+  font-size: 10px;
+  color: #9CA3AF;
+  font-family: 'DM Mono', monospace;
+}
+
+.ls-days-left {
+  font-size: 10px;
+  color: #9CA3AF;
+  font-family: 'DM Mono', monospace;
+}
+
+/* Other cells */
+.ls-supplier {
+  font-size: 12px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.ls-lead-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ls-lead-days {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  font-family: 'DM Mono', monospace;
+}
+
+.ls-est-arrival {
+  font-size: 10px;
+  color: #9CA3AF;
+}
+
+.ls-reorder-qty {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.ls-est-cost {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.ls-last-ordered {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: #9CA3AF;
+}
+
+/* Reorder button */
+.ls-row-actions { display: flex; justify-content: flex-end; }
+
+.ls-reorder-btn {
+  font-size: 12px;
+  font-weight: 700;
+  color: #059669;
+  padding: 6px 12px;
+  border: 1px solid #D1FAE5;
+  border-radius: 5px;
+  background: #ECFDF5;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.ls-reorder-btn:hover {
+  background: #059669;
+  border-color: #059669;
+  color: #fff;
+}
+
+/* ── All good state ─────────────────────────────────────────────────── */
+.ls-all-good {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  text-align: center;
+  gap: 12px;
+}
+
+.ls-all-good-icon {
+  width: 60px;
+  height: 60px;
+  background: #ECFDF5;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #059669;
+  margin-bottom: 8px;
+}
+
+.ls-all-good h2 { font-size: 18px; font-weight: 700; color: #374151; }
+.ls-all-good p  { font-size: 14px; color: #9CA3AF; }
+
+/* ── Modal ─────────────────────────────────────────────────────────── */
+.ls-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.ls-modal {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+
+.ls-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #E5E7EB;
+  flex-shrink: 0;
+}
+
+.ls-modal-header h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.ls-modal-close {
+  font-size: 14px;
+  color: #9CA3AF;
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  background: none;
+  font-family: inherit;
+  transition: all 0.12s;
+}
+
+.ls-modal-close:hover { background: #F3F4F6; color: #111827; }
+
+.ls-modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ls-order-item {
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ls-order-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #F3F4F6;
+}
+
+.ls-order-item-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.ls-order-item-sku {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: #9CA3AF;
+}
+
+.ls-order-item-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.ls-order-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ls-order-field label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ls-order-field input,
+.ls-order-field select {
+  padding: 8px 10px;
+  border: 1px solid #E5E7EB;
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #111827;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.12s;
+}
+
+.ls-order-field input:focus,
+.ls-order-field select:focus { border-color: #059669; }
+
+.ls-order-est {
+  font-size: 12px;
+  color: #6B7280;
+  white-space: nowrap;
+  padding-bottom: 2px;
+}
+
+.ls-order-est strong {
+  font-size: 14px;
+  color: #111827;
+  font-weight: 800;
+}
+
+/* Footer */
+.ls-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #E5E7EB;
+  flex-shrink: 0;
+}
+
+.ls-btn-primary {
+  background: #059669;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 20px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s;
+  font-family: inherit;
+}
+
+.ls-btn-primary:hover { background: #047857; }
+
+.ls-btn-outline {
+  background: #ffffff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 20px;
+  border-radius: 6px;
+  border: 1px solid #E5E7EB;
+  cursor: pointer;
+  transition: all 0.12s;
+  font-family: inherit;
+}
+
+.ls-btn-outline:hover {
+  border-color: #059669;
+  color: #059669;
+  background: #F0FDF4;
+}
