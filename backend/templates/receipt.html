@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <!-- Received from + receipt details -->
+  <div class="doc-meta">
+    <div>
+      <div class="doc-meta-label">Received from</div>
+      <div class="doc-party-name">{{ customer.name }}</div>
+      <div class="doc-party-detail">
+        {{ customer.address }}<br>
+        {% if customer.tax_id %}Tax ID: {{ customer.tax_id }}{% endif %}
+      </div>
+    </div>
+    <div class="doc-details">
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Receipt date</span>
+        <span class="doc-detail-val">{{ receipt_date }}</span>
+      </div>
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Invoice ref</span>
+        <span class="doc-detail-val">{{ invoice_ref }}</span>
+      </div>
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Payment method</span>
+        <span class="doc-detail-val">{{ payment_method }}</span>
+      </div>
+      {% if payment_reference %}
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Reference</span>
+        <span class="doc-detail-val">{{ payment_reference }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Payment for -->
+  <table class="doc-table">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="num">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="item-name">{{ item.description }}</td>
+        <td class="num">{{ currency }}{{ "{:,.2f}".format(item.amount) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Total -->
+  <div class="doc-totals">
+    <div class="doc-total-single">
+      <span class="label">Amount received</span>
+      <span class="value">{{ currency }}{{ "{:,.2f}".format(total_amount) }}</span>
+    </div>
+  </div>
+
+  <!-- Amount in words -->
+  {% if amount_in_words %}
+  <div class="doc-box">
+    <div class="doc-box-title">Amount in words</div>
+    <div style="font-size:11px; font-weight:600; color:#111827; font-style:italic;">
+      {{ amount_in_words }}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Remaining balance -->
+  {% if remaining_balance is not none %}
+  <div class="doc-box">
+    <div class="doc-box-grid">
+      <div class="doc-box-row"><span>Invoice total</span><span>{{ currency }}{{ "{:,.2f}".format(invoice_total) }}</span></div>
+      <div class="doc-box-row"><span>Paid to date</span><span>{{ currency }}{{ "{:,.2f}".format(paid_to_date) }}</span></div>
+      <div class="doc-box-row">
+        <span>Remaining balance</span>
+        <span style="color:{{ '#DC2626' if remaining_balance > 0 else '#059669' }}">
+          {{ currency }}{{ "{:,.2f}".format(remaining_balance) }}
+          {% if remaining_balance <= 0 %} (paid in full){% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Notes -->
+  {% if notes %}
+  <div class="doc-notes">
+    <div class="doc-notes-label">Notes</div>
+    {{ notes }}
+  </div>
+  {% endif %}
+
+  <!-- Signature -->
+  <div class="sig-grid">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Received by – {{ org.name }}</div>
+      <div class="sig-sub">Authorised signature &amp; date</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Company stamp</div>
+      <div class="sig-sub">If applicable</div>
+    </div>
+  </div>
+
+{% endblock %}

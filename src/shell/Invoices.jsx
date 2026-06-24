@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './Invoices.css';
+import { downloadInvoicePDF } from '../api/invoices.js';
 
 // ── Data ───────────────────────────────────────────────────────────
 const INVOICES = [
@@ -89,7 +90,7 @@ function InvoicePreview({ inv, onClose }) {
           <span className="inv-preview-label">Invoice Preview</span>
           <div className="inv-preview-actions">
             <button className="inv-action-pill">✉ Send by email</button>
-            <button className="inv-action-pill inv-action-primary">↓ Download PDF</button>
+            <button className="inv-action-pill inv-action-primary" onClick={() => downloadInvoicePDF(inv.id)}>↓ Download PDF</button>
             <button className="inv-preview-close" onClick={onClose}>✕</button>
           </div>
         </div>
@@ -341,7 +342,7 @@ export default function Invoices() {
                   <circle cx="12" cy="12" r="3"/>
                 </svg>
               </button>
-              <button className="inv-action-btn" title="Download PDF">
+              <button className="inv-action-btn" title="Download PDF" onClick={() => downloadInvoicePDF(inv.id)}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>

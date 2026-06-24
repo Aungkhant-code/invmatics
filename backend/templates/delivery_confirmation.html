@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <!-- Confirming receipt for + reference details -->
+  <div class="doc-meta">
+    <div>
+      <div class="doc-meta-label">Confirmation from</div>
+      <div class="doc-party-name">{{ customer.name }}</div>
+      <div class="doc-party-detail">
+        {{ delivery_address or customer.address }}<br>
+        {% if customer.contact_name %}Attn: {{ customer.contact_name }}{% endif %}
+      </div>
+    </div>
+    <div class="doc-details">
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Delivery date</span>
+        <span class="doc-detail-val">{{ delivery_date }}</span>
+      </div>
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Delivery order</span>
+        <span class="doc-detail-val">{{ delivery_order_ref }}</span>
+      </div>
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Order ref</span>
+        <span class="doc-detail-val">{{ order_ref }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Declaration -->
+  <div class="doc-declaration">
+    The undersigned confirms that the goods listed below were received from
+    <strong>{{ org.name }}</strong> on <strong>{{ delivery_date }}</strong>
+    against delivery order <strong>{{ delivery_order_ref }}</strong>,
+    and that the condition of each item has been noted below.
+  </div>
+
+  <!-- Line items with condition -->
+  <table class="doc-table">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>SKU</th>
+        <th class="center">Qty delivered</th>
+        <th class="center">Qty received</th>
+        <th class="center">Condition</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="item-name">{{ item.description }}</td>
+        <td class="item-sku">{{ item.sku }}</td>
+        <td class="center">{{ item.qty_delivered }}</td>
+        <td class="center">{{ item.qty_received }}</td>
+        <td class="center">
+          <span class="doc-status cond-{{ item.condition_class }}">{{ item.condition }}</span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Notes / discrepancies -->
+  <div class="doc-notes">
+    <div class="doc-notes-label">Remarks / discrepancies</div>
+    {% if notes %}
+      {{ notes }}
+    {% else %}
+      <span style="color:#D1D5DB;">No discrepancies reported.</span>
+    {% endif %}
+  </div>
+
+  <!-- Photo evidence placeholder -->
+  {% if photo_refs and photo_refs|length > 0 %}
+  <div class="doc-box">
+    <div class="doc-box-title">Photo evidence</div>
+    <div style="font-size:9.5px; color:#374151;">
+      {{ photo_refs|length }} photo(s) attached &mdash; captured via Invmatics mobile app at point of delivery.
+      {% for ref in photo_refs %}
+        <br>&bull; {{ ref }}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Signature -->
+  <div class="sig-grid">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Received &amp; confirmed by</div>
+      <div class="sig-fields">
+        Name: <span class="fill-line"></span><br>
+        Position: <span class="fill-line"></span><br>
+        Date: <span class="fill-line"></span>
+      </div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Delivered by – {{ org.name }}</div>
+      <div class="sig-fields">
+        Name: <span class="fill-line"></span><br>
+        Driver / staff ID: <span class="fill-line"></span><br>
+        Date: <span class="fill-line"></span>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}

@@ -1,0 +1,444 @@
+/* ================================================================
+   Invmatics Systems – Shared PDF document styles
+   Used by: invoice, quotation, delivery_order,
+            delivery_confirmation, receipt
+   ================================================================ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+@page {
+  size: A4;
+  margin: 16mm 16mm 18mm 16mm;
+  @bottom-center {
+    content: "Page " counter(page) " / " counter(pages);
+    font-size: 8px;
+    color: #9CA3AF;
+    font-family: 'DejaVu Sans', sans-serif;
+  }
+}
+
+body {
+  font-family: 'Liberation Sans', 'DejaVu Sans', Arial, sans-serif;
+  font-size: 10.5px;
+  color: #111827;
+  line-height: 1.5;
+}
+
+.doc { position: relative; }
+
+/* ── Header ────────────────────────────────────────────────────── */
+.doc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #111827;
+  margin-bottom: 20px;
+}
+
+.doc-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.doc-logo-mark {
+  width: 22px;
+  height: 22px;
+  background: #059669;
+  border-radius: 5px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.doc-logo-mark span {
+  position: absolute;
+  left: 4px;
+  height: 2.5px;
+  background: #ffffff;
+  border-radius: 1.5px;
+}
+
+.doc-logo-mark span:nth-child(1) { top: 5px;  width: 14px; opacity: 1;   }
+.doc-logo-mark span:nth-child(2) { top: 10px; width: 10px; opacity: 0.7; }
+.doc-logo-mark span:nth-child(3) { top: 15px; width: 12px; opacity: 0.5; }
+
+.doc-biz-name { font-size: 13px; font-weight: 700; }
+
+.doc-biz-details {
+  font-size: 9px;
+  color: #6B7280;
+  line-height: 1.7;
+}
+
+.doc-title-block { text-align: right; }
+
+.doc-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  margin-bottom: 4px;
+  color: #111827;
+  white-space: nowrap;
+}
+
+.doc-number {
+  font-size: 11px;
+  color: #6B7280;
+  font-family: 'DejaVu Sans Mono', monospace;
+}
+
+/* ── Meta / parties ────────────────────────────────────────────── */
+.doc-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.doc-meta-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #9CA3AF;
+  margin-bottom: 6px;
+}
+
+.doc-party-name {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.doc-party-detail {
+  font-size: 9.5px;
+  color: #6B7280;
+  line-height: 1.7;
+}
+
+.doc-details { text-align: right; }
+
+.doc-detail-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-bottom: 4px;
+  align-items: center;
+}
+
+.doc-detail-label {
+  font-size: 9px;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.doc-detail-val {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'DejaVu Sans Mono', monospace;
+  min-width: 95px;
+  text-align: right;
+}
+
+/* ── Line item table ────────────────────────────────────────────── */
+table.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 18px;
+}
+
+table.doc-table thead tr {
+  background: #0F172A;
+  color: #ffffff;
+}
+
+table.doc-table th {
+  padding: 7px 10px;
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  text-align: left;
+}
+
+table.doc-table th.num,
+table.doc-table td.num { text-align: right; }
+
+table.doc-table th.center,
+table.doc-table td.center { text-align: center; }
+
+table.doc-table td {
+  padding: 8px 10px;
+  font-size: 10px;
+  border-bottom: 1px solid #F1F5F9;
+  color: #374151;
+}
+
+table.doc-table td.num {
+  font-family: 'DejaVu Sans Mono', monospace;
+}
+
+table.doc-table td.item-name {
+  font-weight: 600;
+  color: #111827;
+}
+
+table.doc-table td.item-sku {
+  font-family: 'DejaVu Sans Mono', monospace;
+  font-size: 9px;
+  color: #9CA3AF;
+}
+
+table.doc-table tbody tr:nth-child(even) { background: #FAFBFC; }
+
+/* ── Totals ────────────────────────────────────────────────────── */
+.doc-totals {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 22px;
+}
+
+.doc-totals-table { width: 230px; }
+
+.doc-total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 10px;
+  color: #6B7280;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.doc-total-row > span:last-child {
+  font-family: 'DejaVu Sans Mono', monospace;
+}
+
+.doc-total-row.grand {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  border-bottom: none;
+  border-top: 2px solid #111827;
+  padding-top: 8px;
+  margin-top: 2px;
+}
+
+.doc-total-row.grand > span:last-child {
+  font-family: 'DejaVu Sans Mono', monospace;
+  font-weight: 700;
+}
+
+/* Single-line total (used by receipts) */
+.doc-total-single {
+  width: 230px;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  border-top: 2px solid #111827;
+  padding-top: 8px;
+}
+
+.doc-total-single .label {
+  font-weight: 600;
+  color: #6B7280;
+  font-size: 11px;
+  margin-right: 14px;
+}
+
+.doc-total-single .value {
+  font-family: 'DejaVu Sans Mono', monospace;
+}
+
+/* ── Info / payment box ────────────────────────────────────────── */
+.doc-box {
+  background: #F8FAFB;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.doc-box-title {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #9CA3AF;
+  margin-bottom: 8px;
+}
+
+.doc-box-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 28px;
+}
+
+.doc-box-row {
+  display: flex;
+  gap: 10px;
+  font-size: 9.5px;
+  margin-bottom: 3px;
+  width: 100%;
+}
+
+.doc-box-grid .doc-box-row { width: 46%; }
+
+.doc-box-row span:first-child {
+  color: #9CA3AF;
+  min-width: 72px;
+  font-weight: 500;
+}
+
+.doc-box-row span:last-child {
+  color: #374151;
+  font-weight: 600;
+}
+
+/* ── Notes ─────────────────────────────────────────────────────── */
+.doc-notes {
+  border-top: 1px solid #F1F5F9;
+  padding-top: 12px;
+  font-size: 9.5px;
+  color: #6B7280;
+  margin-bottom: 12px;
+}
+
+.doc-notes-label {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #9CA3AF;
+  margin-bottom: 5px;
+}
+
+/* ── Status badge ──────────────────────────────────────────────── */
+.doc-status {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 4px;
+  display: inline-block;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.status-paid      { background: #ECFDF5; color: #059669; }
+.status-partial   { background: #FFFBEB; color: #D97706; }
+.status-unpaid    { background: #FFFBEB; color: #D97706; }
+.status-overdue   { background: #FEF2F2; color: #DC2626; }
+.status-pending   { background: #EFF6FF; color: #2563EB; }
+.status-confirmed { background: #ECFDF5; color: #059669; }
+.status-draft     { background: #F3F4F6; color: #6B7280; }
+.status-sent      { background: #EFF6FF; color: #2563EB; }
+.status-delivered { background: #ECFDF5; color: #059669; }
+
+/* ── Stamp (full-page watermark) ───────────────────────────────── */
+.doc-stamp {
+  position: fixed;
+  top: 48%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-28deg);
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: 14px;
+  border: 5px solid currentColor;
+  padding: 10px 36px;
+  border-radius: 10px;
+  white-space: nowrap;
+  z-index: -1;
+}
+
+.doc-stamp-paid      { color: #059669; opacity: 0.10; }
+.doc-stamp-overdue   { color: #DC2626; opacity: 0.10; }
+.doc-stamp-confirmed { color: #059669; opacity: 0.10; }
+.doc-stamp-draft     { color: #9CA3AF; opacity: 0.12; }
+.doc-stamp-received  { color: #059669; opacity: 0.10; }
+
+/* ── Signature blocks ──────────────────────────────────────────── */
+.sig-grid {
+  display: flex;
+  gap: 24px;
+  margin-top: 36px;
+}
+
+.sig-box { flex: 1; }
+
+.sig-line {
+  border-bottom: 1px solid #9CA3AF;
+  height: 48px;
+  margin-bottom: 6px;
+}
+
+.sig-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.sig-sub {
+  font-size: 8.5px;
+  color: #9CA3AF;
+  margin-top: 2px;
+}
+
+.sig-fields {
+  margin-top: 8px;
+  font-size: 9px;
+  color: #6B7280;
+  line-height: 2.1;
+}
+
+.sig-fields .fill-line {
+  display: inline-block;
+  border-bottom: 1px solid #D1D5DB;
+  min-width: 120px;
+  margin-left: 4px;
+}
+
+/* ── Section heading ───────────────────────────────────────────── */
+.doc-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+/* ── Declaration box ───────────────────────────────────────────── */
+.doc-declaration {
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 9.5px;
+  color: #374151;
+  line-height: 1.7;
+  margin-bottom: 8px;
+}
+
+.doc-declaration strong { color: #111827; }
+
+/* ── Condition badges (delivery confirmation) ──────────────────── */
+.cond-good    { background: #ECFDF5; color: #059669; }
+.cond-damaged { background: #FEF2F2; color: #DC2626; }
+.cond-short   { background: #FFFBEB; color: #D97706; }
+
+/* ── Footer note ───────────────────────────────────────────────── */
+.doc-footer-note {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 8px;
+  color: #D1D5DB;
+  letter-spacing: 0.5px;
+}
+
+/* ── Utility ───────────────────────────────────────────────────── */
+.text-right  { text-align: right; }
+.text-center { text-align: center; }
+.mb-0 { margin-bottom: 0; }
+.spacer { height: 10px; }

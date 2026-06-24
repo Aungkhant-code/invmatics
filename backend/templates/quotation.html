@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <!-- Quote to + quotation details -->
+  <div class="doc-meta">
+    <div>
+      <div class="doc-meta-label">Quote to</div>
+      <div class="doc-party-name">{{ customer.name }}</div>
+      <div class="doc-party-detail">
+        {{ customer.address }}<br>
+        {% if customer.tax_id %}Tax ID: {{ customer.tax_id }}<br>{% endif %}
+        {% if customer.contact_name %}Attn: {{ customer.contact_name }}{% endif %}
+      </div>
+    </div>
+    <div class="doc-details">
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Quote date</span>
+        <span class="doc-detail-val">{{ quote_date }}</span>
+      </div>
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Valid until</span>
+        <span class="doc-detail-val">{{ valid_until }}</span>
+      </div>
+      {% if prepared_by %}
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Prepared by</span>
+        <span class="doc-detail-val">{{ prepared_by }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Line items -->
+  <table class="doc-table">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="center">Qty</th>
+        <th class="num">Unit price</th>
+        <th class="num">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="item-name">
+          {{ item.description }}
+          {% if item.notes %}<br><span style="font-size:8.5px; color:#9CA3AF; font-weight:400">{{ item.notes }}</span>{% endif %}
+        </td>
+        <td class="center">{{ item.qty }}</td>
+        <td class="num">{{ currency }}{{ "{:,.2f}".format(item.unit_price) }}</td>
+        <td class="num">{{ currency }}{{ "{:,.2f}".format(item.qty * item.unit_price) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Totals -->
+  <div class="doc-totals">
+    <div class="doc-totals-table">
+      <div class="doc-total-row">
+        <span>Subtotal</span>
+        <span>{{ currency }}{{ "{:,.2f}".format(subtotal) }}</span>
+      </div>
+      <div class="doc-total-row">
+        <span>VAT ({{ tax_rate }}%)</span>
+        <span>{{ currency }}{{ "{:,.2f}".format(tax_amount) }}</span>
+      </div>
+      {% if discount_amount and discount_amount > 0 %}
+      <div class="doc-total-row">
+        <span>Discount</span>
+        <span>-{{ currency }}{{ "{:,.2f}".format(discount_amount) }}</span>
+      </div>
+      {% endif %}
+      <div class="doc-total-row grand">
+        <span>Estimated total</span>
+        <span>{{ currency }}{{ "{:,.2f}".format(total_amount) }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terms -->
+  <div class="doc-box">
+    <div class="doc-box-title">Terms &amp; conditions</div>
+    <div style="font-size:9.5px; color:#374151; line-height:1.8;">
+      &bull; This quotation is valid until <strong>{{ valid_until }}</strong>. Prices are subject to change after this date.<br>
+      &bull; Prices shown are estimates and may vary based on final order quantities.<br>
+      &bull; Lead time will be confirmed upon order confirmation.<br>
+      {% if payment_terms %}&bull; Payment terms: {{ payment_terms }}.<br>{% endif %}
+      &bull; This is not a tax invoice.
+    </div>
+  </div>
+
+  <!-- Notes -->
+  {% if notes %}
+  <div class="doc-notes">
+    <div class="doc-notes-label">Notes</div>
+    {{ notes }}
+  </div>
+  {% endif %}
+
+  <!-- Acceptance signature -->
+  <div class="sig-grid">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Authorised by – {{ org.name }}</div>
+      <div class="sig-sub">Name &amp; date</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Accepted by – {{ customer.name }}</div>
+      <div class="sig-sub">Name, signature &amp; date – to confirm this order</div>
+    </div>
+  </div>
+
+{% endblock %}

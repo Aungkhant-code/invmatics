@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <!-- Bill to + invoice details -->
+  <div class="doc-meta">
+    <div>
+      <div class="doc-meta-label">Bill to</div>
+      <div class="doc-party-name">{{ customer.name }}</div>
+      <div class="doc-party-detail">
+        {{ customer.address }}<br>
+        {% if customer.tax_id %}Tax ID: {{ customer.tax_id }}<br>{% endif %}
+        {% if customer.contact_name %}Attn: {{ customer.contact_name }}{% endif %}
+      </div>
+    </div>
+    <div class="doc-details">
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Invoice date</span>
+        <span class="doc-detail-val">{{ invoice_date }}</span>
+      </div>
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Due date</span>
+        <span class="doc-detail-val">{{ due_date }}</span>
+      </div>
+      {% if order_ref %}
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Order ref</span>
+        <span class="doc-detail-val">{{ order_ref }}</span>
+      </div>
+      {% endif %}
+      {% if customer_ref %}
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Customer PO</span>
+        <span class="doc-detail-val">{{ customer_ref }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Line items -->
+  <table class="doc-table">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="center">Qty</th>
+        <th class="num">Unit price</th>
+        <th class="num">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="item-name">{{ item.description }}</td>
+        <td class="center">{{ item.qty }}</td>
+        <td class="num">{{ currency }}{{ "{:,.2f}".format(item.unit_price) }}</td>
+        <td class="num">{{ currency }}{{ "{:,.2f}".format(item.qty * item.unit_price) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Totals -->
+  <div class="doc-totals">
+    <div class="doc-totals-table">
+      <div class="doc-total-row">
+        <span>Subtotal</span>
+        <span>{{ currency }}{{ "{:,.2f}".format(subtotal) }}</span>
+      </div>
+      <div class="doc-total-row">
+        <span>VAT ({{ tax_rate }}%)</span>
+        <span>{{ currency }}{{ "{:,.2f}".format(tax_amount) }}</span>
+      </div>
+      {% if discount_amount and discount_amount > 0 %}
+      <div class="doc-total-row">
+        <span>Discount</span>
+        <span>-{{ currency }}{{ "{:,.2f}".format(discount_amount) }}</span>
+      </div>
+      {% endif %}
+      {% if amount_paid and amount_paid > 0 %}
+      <div class="doc-total-row">
+        <span>Amount paid</span>
+        <span>-{{ currency }}{{ "{:,.2f}".format(amount_paid) }}</span>
+      </div>
+      <div class="doc-total-row grand">
+        <span>Balance due</span>
+        <span>{{ currency }}{{ "{:,.2f}".format(total_amount - amount_paid) }}</span>
+      </div>
+      {% else %}
+      <div class="doc-total-row grand">
+        <span>Total due</span>
+        <span>{{ currency }}{{ "{:,.2f}".format(total_amount) }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Payment details -->
+  {% if bank_name or promptpay_id %}
+  <div class="doc-box">
+    <div class="doc-box-title">Payment details</div>
+    <div class="doc-box-grid">
+      {% if bank_name %}
+      <div class="doc-box-row"><span>Bank</span><span>{{ bank_name }}</span></div>
+      {% endif %}
+      {% if bank_account_no %}
+      <div class="doc-box-row"><span>Account</span><span>{{ bank_account_no }}</span></div>
+      {% endif %}
+      {% if bank_account_name %}
+      <div class="doc-box-row"><span>Name</span><span>{{ bank_account_name }}</span></div>
+      {% endif %}
+      {% if promptpay_id %}
+      <div class="doc-box-row"><span>PromptPay</span><span>{{ promptpay_id }}</span></div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Notes -->
+  {% if notes %}
+  <div class="doc-notes">
+    <div class="doc-notes-label">Notes</div>
+    {{ notes }}
+  </div>
+  {% endif %}
+
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <!-- Deliver to + delivery details -->
+  <div class="doc-meta">
+    <div>
+      <div class="doc-meta-label">Deliver to</div>
+      <div class="doc-party-name">{{ customer.name }}</div>
+      <div class="doc-party-detail">
+        {{ delivery_address or customer.address }}<br>
+        {% if customer.contact_name %}Attn: {{ customer.contact_name }}{% endif %}
+        {% if customer.phone %} &middot; Tel: {{ customer.phone }}{% endif %}
+      </div>
+    </div>
+    <div class="doc-details">
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Delivery date</span>
+        <span class="doc-detail-val">{{ delivery_date }}</span>
+      </div>
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Order ref</span>
+        <span class="doc-detail-val">{{ order_ref }}</span>
+      </div>
+      {% if customer_ref %}
+      <div class="doc-detail-row">
+        <span class="doc-detail-label">Customer PO</span>
+        <span class="doc-detail-val">{{ customer_ref }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Vehicle / driver info -->
+  {% if driver_name or vehicle_no %}
+  <div class="doc-box">
+    <div class="doc-box-title">Delivery details</div>
+    <div class="doc-box-grid">
+      {% if driver_name %}
+      <div class="doc-box-row"><span>Driver</span><span>{{ driver_name }}</span></div>
+      {% endif %}
+      {% if driver_phone %}
+      <div class="doc-box-row"><span>Driver phone</span><span>{{ driver_phone }}</span></div>
+      {% endif %}
+      {% if vehicle_no %}
+      <div class="doc-box-row"><span>Vehicle</span><span>{{ vehicle_no }}</span></div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Line items – packing list, no prices -->
+  <table class="doc-table">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>SKU</th>
+        <th class="center">Qty ordered</th>
+        <th class="center">Qty delivered</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="item-name">{{ item.description }}</td>
+        <td class="item-sku">{{ item.sku }}</td>
+        <td class="center">{{ item.qty_ordered }}</td>
+        <td class="center">{{ item.qty_delivered }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Totals row -->
+  <div class="doc-totals">
+    <div class="doc-totals-table">
+      <div class="doc-total-row">
+        <span>Total line items</span>
+        <span>{{ items|length }}</span>
+      </div>
+      <div class="doc-total-row grand">
+        <span>Total units delivered</span>
+        <span>{{ total_units }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  {% if notes %}
+  <div class="doc-notes">
+    <div class="doc-notes-label">Delivery notes</div>
+    {{ notes }}
+  </div>
+  {% endif %}
+
+  <!-- Signature -->
+  <div class="sig-grid">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Dispatched by – {{ org.name }}</div>
+      <div class="sig-sub">Name, signature &amp; date</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Received by – {{ customer.name }}</div>
+      <div class="sig-sub">Name, signature &amp; date</div>
+    </div>
+  </div>
+
+  <div class="doc-notes" style="margin-top:24px; border-top:1px solid #F1F5F9; padding-top:10px;">
+    Please check goods on receipt. Any discrepancy must be reported within 24 hours.
+    A delivery confirmation receipt accompanies this delivery order.
+  </div>
+
+{% endblock %}
