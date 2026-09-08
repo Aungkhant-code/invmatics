@@ -7,6 +7,8 @@ from quotations  import router as quotations_router
 from delivery    import router as delivery_router
 from receipts    import router as receipts_router
 from products    import router as products_router
+from customers   import router as customers_router
+from suppliers   import router as suppliers_router
 
 app = FastAPI(title="Invmatics Systems API", version="1.0.0")
 
@@ -23,6 +25,8 @@ app.include_router(quotations_router, prefix="/api")
 app.include_router(delivery_router,   prefix="/api")
 app.include_router(receipts_router,   prefix="/api")
 app.include_router(products_router,   prefix="/api")
+app.include_router(customers_router,  prefix="/api")
+app.include_router(suppliers_router,  prefix="/api")
 
 
 @app.get("/api/health")
