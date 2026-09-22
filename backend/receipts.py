@@ -1,143 +1,168 @@
-from fastapi import APIRouter, HTTPException
+"""
+Invmatics Systems — Receipts router
+PDF generation + CRUD backed by real Supabase data.
+"""
+
+from uuid import UUID
+from datetime import date
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import Response
 
+from database import db_admin
+from auth import require_auth, get_client
+from models import ReceiptCreate
 from pdf_service import generate_receipt_pdf
 
 router = APIRouter()
 
-ORG = {
-    "name": "Somchai Trading Co., Ltd.",
-    "address": "123 Sukhumvit Road, Bangkok 10110, Thailand",
-    "tax_id": "0105562012345",
-    "phone": "+66 2 123 4567",
-    "email": "contact@somchaitrading.co.th",
-}
 
-CUSTOMERS = {
-    "Central Hardware": {
-        "name": "Central Hardware Co., Ltd.",
-        "contact_name": None,
-        "address": "89 Rama I Road, Bangkok 10330, Thailand",
-        "tax_id": "0105562022222",
-        "phone": "+66 2 234 5678",
-    },
-    "Siam Industrial": {
-        "name": "Siam Industrial Supplies Co., Ltd.",
-        "contact_name": None,
-        "address": "55 Silom Road, Bangkok 10500, Thailand",
-        "tax_id": "0105562033333",
-        "phone": "+66 2 456 7890",
-    },
-    "Kasem Construction": {
-        "name": "Kasem Construction Co., Ltd.",
-        "contact_name": "Kasem Wongwit",
-        "address": "45 Rama IV Road, Bangkok 10500, Thailand",
-        "tax_id": "0105562011111",
-        "phone": "+66 81 234 5678",
-    },
-}
-
-RECEIPTS = {
-    "RCT-0027": {
-        "customer": "Central Hardware",
-        "invoice_ref": "INV-00039",
-        "receipt_date": "2025-06-09",
-        "payment_method": "Bank transfer",
-        "payment_reference": "KBANK-TXN-88213452",
-        "items": [
-            {"description": "Payment for Invoice INV-00039", "amount": 167154.00},
-        ],
-        "total_amount": 167154.00,
-        "amount_in_words": "One hundred sixty-seven thousand, one hundred fifty-four dollars only",
-        "invoice_total": 167154.00,
-        "paid_to_date": 167154.00,
-        "remaining_balance": 0.00,
-        "notes": "Paid in full. Thank you for your prompt payment.",
-        "status": "paid",
-    },
-    "RCT-0026": {
-        "customer": "Siam Industrial",
-        "invoice_ref": "INV-00037",
-        "receipt_date": "2025-06-07",
-        "payment_method": "PromptPay",
-        "payment_reference": "PROMPTPAY-TXN-77654321",
-        "items": [
-            {"description": "Payment for Invoice INV-00037", "amount": 28926.00},
-        ],
-        "total_amount": 28926.00,
-        "amount_in_words": "Twenty-eight thousand, nine hundred twenty-six dollars only",
-        "invoice_total": 28926.00,
-        "paid_to_date": 28926.00,
-        "remaining_balance": 0.00,
-        "notes": "",
-        "status": "paid",
-    },
-    "RCT-0028": {
-        "customer": "Kasem Construction",
-        "invoice_ref": "INV-00041",
-        "receipt_date": "2025-06-10",
-        "payment_method": "Bank transfer",
-        "payment_reference": "KBANK-TXN-88219999",
-        "items": [
-            {"description": "Deposit — 50% of Invoice INV-00041", "amount": 10726.75},
-        ],
-        "total_amount": 10726.75,
-        "amount_in_words": "Ten thousand, seven hundred twenty-six dollars and seventy-five cents only",
-        "invoice_total": 21453.50,
-        "paid_to_date": 10726.75,
-        "remaining_balance": 10726.75,
-        "notes": "Deposit received. Balance due on delivery.",
-        "status": "partial",
-    },
-}
-
-STATUS_LABELS = {
-    "paid":    "Paid",
-    "partial": "Partial payment",
-}
+def _next_number(org_id: str) -> str:
+    return db_admin.rpc(
+        "next_order_number",
+        {"p_org_id": org_id, "p_type": "RCT"}
+    ).execute().data
 
 
-def _build_context(rct_id: str, rct: dict) -> dict:
-    customer = CUSTOMERS.get(rct["customer"], {
-        "name": rct["customer"],
-        "contact_name": None,
-        "address": "Thailand",
-        "tax_id": None,
-        "phone": None,
-    })
-    status = rct["status"]
-    return {
-        "org": ORG,
-        "customer": customer,
-        "currency": "$",
-        "doc_number": rct_id,
-        "receipt_date": rct["receipt_date"],
-        "invoice_ref": rct["invoice_ref"],
-        "payment_method": rct["payment_method"],
-        "payment_reference": rct.get("payment_reference"),
-        "items": rct["items"],
-        "total_amount": rct["total_amount"],
-        "amount_in_words": rct.get("amount_in_words"),
-        "invoice_total": rct.get("invoice_total"),
-        "paid_to_date": rct.get("paid_to_date"),
-        "remaining_balance": rct.get("remaining_balance"),
-        "notes": rct["notes"] or None,
-        "doc_status": STATUS_LABELS.get(status, status.title()),
-        "doc_status_class": status,
+def _fetch_org(client, org_id: str) -> dict:
+    result = client.table("organisations").select("*").eq("id", org_id).single().execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+    return result.data
+
+
+@router.get("/receipts")
+async def list_receipts(
+    customer_id: Optional[UUID] = None,
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
+):
+    query = (
+        client.table("receipts")
+        .select("*, customers(name)")
+        .order("receipt_date", desc=True)
+    )
+    if customer_id:
+        query = query.eq("customer_id", str(customer_id))
+
+    result = query.execute()
+    return {"receipts": result.data or [], "count": len(result.data or [])}
+
+
+@router.get("/receipts/{receipt_id}")
+async def get_receipt(
+    receipt_id: UUID,
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
+):
+    result = (
+        client.table("receipts")
+        .select("*, customers(name, address, tax_id), invoices(invoice_number, total_amount)")
+        .eq("id", str(receipt_id)).single().execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    return result.data
+
+
+@router.post("/receipts", status_code=201)
+async def create_receipt(
+    body:  ReceiptCreate,
+    user:  dict = Depends(require_auth),
+    client      = Depends(get_client),
+):
+    org_id         = user["org_id"]
+    receipt_number = _next_number(org_id)
+
+    data = {
+        "org_id":            org_id,
+        "customer_id":       str(body.customer_id),
+        "invoice_id":        str(body.invoice_id) if body.invoice_id else None,
+        "payment_id":        str(body.payment_id) if body.payment_id else None,
+        "receipt_number":    receipt_number,
+        "receipt_date":      str(body.receipt_date or date.today()),
+        "payment_method":    body.payment_method,
+        "payment_reference": body.payment_reference,
+        "total_amount":      body.total_amount,
+        "amount_in_words":   body.amount_in_words,
+        "notes":             body.notes,
     }
 
+    result = db_admin.table("receipts").insert(data).execute()
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to create receipt")
+    return result.data[0]
 
-# ── Routes ─────────────────────────────────────────────────────────
 
-@router.get("/receipts/{rct_id}/pdf")
-async def get_receipt_pdf(rct_id: str):
-    rct = RECEIPTS.get(rct_id)
-    if not rct:
-        raise HTTPException(status_code=404, detail=f"Receipt {rct_id} not found")
-    ctx = _build_context(rct_id, rct)
+@router.get("/receipts/{receipt_number}/pdf")
+async def get_receipt_pdf(
+    receipt_number: str,
+    user:  dict = Depends(require_auth),
+    client      = Depends(get_client),
+):
+    result = (
+        client.table("receipts")
+        .select(
+            "*, "
+            "customers(name, contact_name, address, tax_id), "
+            "invoices(invoice_number, total_amount, amount_paid)"
+        )
+        .eq("receipt_number", receipt_number).single().execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail=f"Receipt {receipt_number} not found")
+
+    rct      = result.data
+    customer = rct.get("customers") or {}
+    invoice  = rct.get("invoices") or {}
+    org      = _fetch_org(client, rct["org_id"])
+
+    invoice_total = invoice.get("total_amount", rct["total_amount"])
+    paid_to_date  = invoice.get("amount_paid", rct["total_amount"])
+    remaining     = round(invoice_total - paid_to_date, 2)
+    status        = "paid" if remaining <= 0 else "partial"
+
+    STATUS_LABELS = {"paid": "Paid", "partial": "Partial payment"}
+
+    ctx = {
+        "org": {
+            "name":    org.get("name", ""),
+            "address": org.get("address", ""),
+            "tax_id":  org.get("tax_id"),
+            "phone":   org.get("phone"),
+            "email":   org.get("email"),
+        },
+        "customer": {
+            "name":         customer.get("name", ""),
+            "contact_name": customer.get("contact_name"),
+            "address":      customer.get("address", ""),
+            "tax_id":       customer.get("tax_id"),
+        },
+        "currency":           org.get("currency", "$"),
+        "doc_number":         rct["receipt_number"],
+        "receipt_date":       rct["receipt_date"],
+        "invoice_ref":        invoice.get("invoice_number", "—"),
+        "payment_method":     rct.get("payment_method", "—"),
+        "payment_reference":  rct.get("payment_reference"),
+        "items": [
+            {
+                "description": f"Payment for Invoice {invoice.get('invoice_number', '')}",
+                "amount":      rct["total_amount"],
+            }
+        ],
+        "total_amount":      rct["total_amount"],
+        "amount_in_words":   rct.get("amount_in_words"),
+        "invoice_total":     invoice_total,
+        "paid_to_date":      paid_to_date,
+        "remaining_balance": remaining,
+        "notes":             rct.get("notes"),
+        "doc_status":        STATUS_LABELS.get(status, "Paid"),
+        "doc_status_class":  status,
+    }
+
     pdf_bytes = generate_receipt_pdf(ctx)
     return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{rct_id}.pdf"'},
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{receipt_number}.pdf"'},
     )

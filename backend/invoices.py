@@ -1,197 +1,376 @@
-from fastapi import APIRouter, HTTPException
+"""
+Invmatics Systems — Invoices router
+PDF generation + CRUD backed by real Supabase data.
+"""
+
+from uuid import UUID
+from datetime import date
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import Response
 
+from database import db_admin
+from auth import require_auth, get_client
+from models import InvoiceCreate, InvoiceUpdate, RecordPayment
 from pdf_service import generate_invoice_pdf
 
 router = APIRouter()
 
-# ── Organisation ───────────────────────────────────────────────────
-ORG = {
-    "name": "Somchai Trading Co., Ltd.",
-    "address": "123 Sukhumvit Road, Bangkok 10110, Thailand",
-    "tax_id": "0105562012345",
-    "phone": "+66 2 123 4567",
-    "email": "contact@somchaitrading.co.th",
-}
 
-BANK = {
-    "bank_name": "Kasikorn Bank",
-    "bank_account_no": "123-4-56789-0",
-    "bank_account_name": "Somchai Trading Co. Ltd.",
-    "promptpay_id": "0891234567",
-}
+# ================================================================
+# HELPERS
+# ================================================================
 
-# ── Customer lookup ────────────────────────────────────────────────
-CUSTOMERS = {
-    "Kasem Construction": {
-        "name": "Kasem Construction Co., Ltd.",
-        "contact_name": "Kasem Wongwit",
-        "address": "45 Rama IV Road, Bangkok 10500, Thailand",
-        "tax_id": "0105562011111",
-        "phone": "+66 81 234 5678",
-    },
-    "Phuket Build Ltd.": {
-        "name": "Phuket Build Ltd.",
-        "contact_name": None,
-        "address": "12 Patong Road, Phuket 83150, Thailand",
-        "tax_id": None,
-        "phone": "+66 76 345 6789",
-    },
-    "Central Hardware": {
-        "name": "Central Hardware Co., Ltd.",
-        "contact_name": None,
-        "address": "89 Rama I Road, Bangkok 10330, Thailand",
-        "tax_id": "0105562022222",
-        "phone": "+66 2 234 5678",
-    },
-    "Nonthaburi Works": {
-        "name": "Nonthaburi Works Co., Ltd.",
-        "contact_name": None,
-        "address": "22 Nonthaburi Road, Nonthaburi 11000, Thailand",
-        "tax_id": None,
-        "phone": "+66 2 345 6789",
-    },
-    "Siam Industrial": {
-        "name": "Siam Industrial Supplies Co., Ltd.",
-        "contact_name": None,
-        "address": "55 Silom Road, Bangkok 10500, Thailand",
-        "tax_id": "0105562033333",
-        "phone": "+66 2 456 7890",
-    },
-    "BKK Contractors": {
-        "name": "BKK Contractors Co., Ltd.",
-        "contact_name": None,
-        "address": "101 Sukhumvit Soi 71, Bangkok 10110, Thailand",
-        "tax_id": None,
-        "phone": "+66 2 567 8901",
-    },
-}
-
-# ── Invoice data (mirrors Invoices.jsx static list) ────────────────
-INVOICES = {
-    "INV-00041": {
-        "order_ref": "SO-0041", "customer": "Kasem Construction",
-        "invoice_date": "2025-06-09", "due_date": "2025-06-23", "status": "unpaid",
-        "items": [
-            {"description": "Cable 2.5mm (100m roll)", "qty": 10, "unit_price": 1200},
-            {"description": "Drain Cover 300×300mm",   "qty": 20, "unit_price": 290},
-            {"description": "Steel Conduit 20mm (3m)", "qty": 15, "unit_price": 150},
-        ],
-        "tax_rate": 7.0,
-        "notes": "Payment via bank transfer or PromptPay",
-    },
-    "INV-00040": {
-        "order_ref": "SO-0040", "customer": "Phuket Build Ltd.",
-        "invoice_date": "2025-06-08", "due_date": "2025-06-22", "status": "unpaid",
-        "items": [
-            {"description": "Cable 4mm (100m roll)", "qty": 5,  "unit_price": 1800},
-            {"description": "PVC Junction Box 4\"",  "qty": 40, "unit_price": 75},
-        ],
-        "tax_rate": 7.0,
-        "notes": "",
-    },
-    "INV-00039": {
-        "order_ref": "SO-0039", "customer": "Central Hardware",
-        "invoice_date": "2025-06-07", "due_date": "2025-06-21", "status": "paid",
-        "items": [
-            {"description": "Cable 6mm (100m roll)",  "qty": 8,  "unit_price": 2500},
-            {"description": "Cable Tray 100mm (2m)",  "qty": 30, "unit_price": 420},
-            {"description": "Gland Plate 150×150mm",  "qty": 50, "unit_price": 110},
-        ],
-        "tax_rate": 7.0,
-        "notes": "",
-    },
-    "INV-00038": {
-        "order_ref": "SO-0038", "customer": "Nonthaburi Works",
-        "invoice_date": "2025-06-06", "due_date": "2025-06-20", "status": "overdue",
-        "items": [
-            {"description": "Drain Cover 450×450mm",   "qty": 25, "unit_price": 490},
-            {"description": "Steel Conduit 25mm (3m)", "qty": 10, "unit_price": 185},
-        ],
-        "tax_rate": 7.0,
-        "notes": "Net 14 payment terms",
-    },
-    "INV-00037": {
-        "order_ref": "SO-0037", "customer": "Siam Industrial",
-        "invoice_date": "2025-06-05", "due_date": "2025-06-19", "status": "paid",
-        "items": [
-            {"description": "Cable 2.5mm (100m roll)", "qty": 20, "unit_price": 1200},
-            {"description": "PVC Junction Box 4\"",    "qty": 60, "unit_price": 75},
-        ],
-        "tax_rate": 7.0,
-        "notes": "",
-    },
-    "INV-00036": {
-        "order_ref": "SO-0036", "customer": "BKK Contractors",
-        "invoice_date": "2025-06-04", "due_date": "2025-06-18", "status": "overdue",
-        "items": [
-            {"description": "Steel Conduit 20mm (3m)", "qty": 40, "unit_price": 150},
-            {"description": "Gland Plate 150×150mm",   "qty": 30, "unit_price": 110},
-        ],
-        "tax_rate": 7.0,
-        "notes": "",
-    },
-}
-
-STATUS_LABELS = {
-    "paid":    "Paid",
-    "unpaid":  "Unpaid",
-    "overdue": "Overdue",
-}
+def _next_number(org_id: str) -> str:
+    result = db_admin.rpc(
+        "next_order_number",
+        {"p_org_id": org_id, "p_type": "INV"}
+    ).execute()
+    return result.data
 
 
-def _build_context(invoice_id: str, inv: dict) -> dict:
-    subtotal = sum(i["qty"] * i["unit_price"] for i in inv["items"])
-    tax_amount = round(subtotal * inv["tax_rate"] / 100, 2)
-    total_amount = subtotal + tax_amount
-    status = inv["status"]
-    amount_paid = total_amount if status == "paid" else 0
-
-    customer_name = inv["customer"]
-    customer = CUSTOMERS.get(customer_name, {
-        "name": customer_name,
-        "contact_name": None,
-        "address": "Thailand",
-        "tax_id": None,
-        "phone": None,
-    })
-
+def _build_org_context(org: dict) -> dict:
     return {
-        "org": ORG,
-        "customer": customer,
-        "currency": "$",
-        "doc_number": invoice_id,
-        "invoice_date": inv["invoice_date"],
-        "due_date": inv["due_date"],
-        "order_ref": inv["order_ref"],
-        "customer_ref": None,
-        "items": inv["items"],
-        "subtotal": subtotal,
-        "tax_rate": inv["tax_rate"],
-        "tax_amount": tax_amount,
-        "discount_amount": 0,
-        "amount_paid": amount_paid,
-        "total_amount": total_amount,
-        **BANK,
-        "notes": inv["notes"] or None,
-        "doc_status": STATUS_LABELS[status],
-        "doc_status_class": status,
+        "name":              org.get("name", ""),
+        "address":           org.get("address", ""),
+        "tax_id":            org.get("tax_id"),
+        "phone":             org.get("phone"),
+        "email":             org.get("email"),
+        "bank_name":         org.get("bank_name"),
+        "bank_account_no":   org.get("bank_account_no"),
+        "bank_account_name": org.get("bank_account_name"),
+        "promptpay_id":      org.get("promptpay_id"),
     }
 
 
-# ── Routes ─────────────────────────────────────────────────────────
+def _build_customer_context(c: dict) -> dict:
+    return {
+        "name":         c.get("name", ""),
+        "contact_name": c.get("contact_name"),
+        "address":      c.get("address", ""),
+        "tax_id":       c.get("tax_id"),
+        "phone":        c.get("phone"),
+    }
+
+
+def _fetch_org(client, org_id: str) -> dict:
+    result = (
+        client.table("organisations")
+        .select("*")
+        .eq("id", org_id)
+        .single()
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+    return result.data
+
+
+# ================================================================
+# LIST & GET
+# ================================================================
+
+@router.get("/invoices")
+async def list_invoices(
+    status:      Optional[str]  = None,
+    customer_id: Optional[UUID] = None,
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
+):
+    query = (
+        client.table("invoices")
+        .select(
+            "*, "
+            "customers(name, contact_name), "
+            "invoice_items(description, qty, unit_price, line_total)"
+        )
+        .order("invoice_date", desc=True)
+    )
+    if status:
+        query = query.eq("status", status)
+    if customer_id:
+        query = query.eq("customer_id", str(customer_id))
+
+    result = query.execute()
+    return {"invoices": result.data or [], "count": len(result.data or [])}
+
+
+@router.get("/invoices/{invoice_id}")
+async def get_invoice(
+    invoice_id: UUID,
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
+):
+    result = (
+        client.table("invoices")
+        .select(
+            "*, "
+            "customers(id, name, contact_name, address, tax_id, phone, payment_terms), "
+            "invoice_items(id, product_id, description, qty, unit_price, tax_rate, line_total), "
+            "sales_orders(order_number)"
+        )
+        .eq("id", str(invoice_id))
+        .single()
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return result.data
+
+
+# ================================================================
+# CREATE
+# ================================================================
+
+@router.post("/invoices", status_code=201)
+async def create_invoice(
+    body:  InvoiceCreate,
+    user:  dict = Depends(require_auth),
+    client      = Depends(get_client),
+):
+    org_id = user["org_id"]
+
+    cust = (
+        client.table("customers")
+        .select("id, name, payment_terms")
+        .eq("id", str(body.customer_id))
+        .single()
+        .execute()
+    )
+    if not cust.data:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    invoice_number = _next_number(org_id)
+
+    resolved = []
+    for item in body.items:
+        product = (
+            client.table("products")
+            .select("name, selling_price")
+            .eq("id", str(item.product_id))
+            .single()
+            .execute()
+        )
+        if not product.data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Product {item.product_id} not found"
+            )
+        unit_price = item.unit_price or product.data["selling_price"]
+        line_total = round(item.qty * unit_price * (1 - item.discount_pct / 100), 2)
+        resolved.append({
+            "description": item.description or product.data["name"],
+            "qty":         item.qty,
+            "unit_price":  unit_price,
+            "tax_rate":    item.tax_rate,
+            "line_total":  line_total,
+        })
+
+    subtotal   = sum(i["line_total"] for i in resolved)
+    tax_amount = round(subtotal * body.tax_rate / 100, 2)
+    total      = subtotal + tax_amount
+
+    settings = (
+        client.table("org_settings")
+        .select("default_payment_terms, default_invoice_notes")
+        .single()
+        .execute()
+    )
+    payment_terms = (settings.data or {}).get("default_payment_terms", 14)
+
+    invoice_date = body.invoice_date or date.today()
+    due_date     = body.due_date or date.fromordinal(
+        invoice_date.toordinal() + payment_terms
+    )
+
+    invoice_data = {
+        "org_id":         org_id,
+        "customer_id":    str(body.customer_id),
+        "sales_order_id": str(body.sales_order_id) if body.sales_order_id else None,
+        "invoice_number": invoice_number,
+        "status":         "draft",
+        "invoice_date":   str(invoice_date),
+        "due_date":       str(due_date),
+        "subtotal":       round(subtotal, 2),
+        "tax_rate":       body.tax_rate,
+        "tax_amount":     tax_amount,
+        "total_amount":   round(total, 2),
+        "amount_paid":    0,
+        "notes":          body.notes,
+    }
+
+    inv_result = db_admin.table("invoices").insert(invoice_data).execute()
+    if not inv_result.data:
+        raise HTTPException(status_code=500, detail="Failed to create invoice")
+
+    invoice = inv_result.data[0]
+
+    for item in resolved:
+        item["org_id"]     = org_id
+        item["invoice_id"] = invoice["id"]
+
+    db_admin.table("invoice_items").insert(resolved).execute()
+
+    return invoice
+
+
+# ================================================================
+# UPDATE STATUS
+# ================================================================
+
+@router.put("/invoices/{invoice_id}")
+async def update_invoice(
+    invoice_id: UUID,
+    body:  InvoiceUpdate,
+    user:  dict = Depends(require_auth),
+    client      = Depends(get_client),
+):
+    updates = body.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    if "due_date" in updates:
+        updates["due_date"] = str(updates["due_date"])
+
+    result = (
+        client.table("invoices")
+        .update(updates)
+        .eq("id", str(invoice_id))
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return result.data[0]
+
+
+# ================================================================
+# RECORD PAYMENT
+# ================================================================
+
+@router.post("/invoices/{invoice_id}/payments")
+async def record_payment(
+    invoice_id: UUID,
+    body:  RecordPayment,
+    user:  dict = Depends(require_auth),
+    client      = Depends(get_client),
+):
+    inv = (
+        client.table("invoices")
+        .select("id, total_amount, amount_paid, status")
+        .eq("id", str(invoice_id))
+        .single()
+        .execute()
+    )
+    if not inv.data:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    invoice  = inv.data
+    new_paid = round(invoice["amount_paid"] + body.amount, 2)
+
+    if new_paid > invoice["total_amount"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Payment of {body.amount} exceeds remaining balance of "
+                   f"{invoice['total_amount'] - invoice['amount_paid']:.2f}"
+        )
+
+    new_status = "paid" if new_paid >= invoice["total_amount"] else invoice["status"]
+
+    payment_data = {
+        "org_id":         user["org_id"],
+        "invoice_id":     str(invoice_id),
+        "amount":         body.amount,
+        "payment_method": body.payment_method,
+        "reference":      body.reference,
+        "paid_at":        str(body.paid_at or date.today()),
+        "notes":          body.notes,
+    }
+    db_admin.table("payments").insert(payment_data).execute()
+
+    db_admin.table("invoices").update({
+        "amount_paid": new_paid,
+        "status":      new_status,
+        "paid_at":     str(date.today()) if new_status == "paid" else None,
+    }).eq("id", str(invoice_id)).execute()
+
+    return {
+        "message":     "Payment recorded",
+        "amount_paid": new_paid,
+        "status":      new_status,
+        "remaining":   round(invoice["total_amount"] - new_paid, 2),
+    }
+
+
+# ================================================================
+# PDF GENERATION
+# ================================================================
 
 @router.get("/invoices/{invoice_id}/pdf")
-async def get_invoice_pdf(invoice_id: str):
-    inv = INVOICES.get(invoice_id)
-    if not inv:
+async def get_invoice_pdf(
+    invoice_id: str,
+    user:  dict = Depends(require_auth),
+    client      = Depends(get_client),
+):
+    result = (
+        client.table("invoices")
+        .select(
+            "*, "
+            "customers(name, contact_name, address, tax_id, phone), "
+            "invoice_items(description, qty, unit_price, line_total), "
+            "sales_orders(order_number)"
+        )
+        .eq("invoice_number", invoice_id)
+        .single()
+        .execute()
+    )
+
+    if not result.data:
         raise HTTPException(status_code=404, detail=f"Invoice {invoice_id} not found")
 
-    ctx = _build_context(invoice_id, inv)
-    pdf_bytes = generate_invoice_pdf(ctx)
+    inv      = result.data
+    customer = inv.get("customers") or {}
+    org      = _fetch_org(client, inv["org_id"])
 
+    STATUS_LABELS = {
+        "draft": "Draft", "sent": "Sent",
+        "paid": "Paid", "overdue": "Overdue", "void": "Void",
+    }
+
+    ctx = {
+        "org":              _build_org_context(org),
+        "customer":         _build_customer_context(customer),
+        "currency":         org.get("currency", "$"),
+        "doc_number":       inv["invoice_number"],
+        "invoice_date":     inv["invoice_date"],
+        "due_date":         inv["due_date"],
+        "order_ref":        (inv.get("sales_orders") or {}).get("order_number"),
+        "items":            [
+            {
+                "description": i["description"],
+                "qty":         i["qty"],
+                "unit_price":  i["unit_price"],
+            }
+            for i in (inv.get("invoice_items") or [])
+        ],
+        "subtotal":          inv["subtotal"],
+        "tax_rate":          inv["tax_rate"],
+        "tax_amount":        inv["tax_amount"],
+        "discount_amount":   inv.get("discount_amount", 0),
+        "amount_paid":       inv["amount_paid"],
+        "total_amount":      inv["total_amount"],
+        "notes":             inv.get("notes"),
+        "bank_name":         org.get("bank_name"),
+        "bank_account_no":   org.get("bank_account_no"),
+        "bank_account_name": org.get("bank_account_name"),
+        "promptpay_id":      org.get("promptpay_id"),
+        "doc_status":        STATUS_LABELS.get(inv["status"], inv["status"].title()),
+        "doc_status_class":  inv["status"],
+    }
+
+    pdf_bytes = generate_invoice_pdf(ctx)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{invoice_id}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{inv["invoice_number"]}.pdf"'},
     )
