@@ -36,18 +36,15 @@ export default function Suppliers() {
   const [error,     setError]     = useState(null);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await api.get(`/suppliers${search ? `?search=${encodeURIComponent(search)}` : ''}`);
       setSuppliers(data.suppliers || []);
-      setError(null);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, [api, search]);
 
-  useEffect(() => {
-    // load() only sets state after the network await, never synchronously
-    (async () => { await load(); })();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const selectSupplier = async (s) => {
     setSelected(s);

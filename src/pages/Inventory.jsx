@@ -24,10 +24,10 @@ function fmt(n) {
   return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export default function Inventory({ initialView = 'stock', lowOnly = false }) {
+export default function Inventory() {
   const api = useApi();
 
-  const [view,       setView]       = useState(initialView);   // 'stock' | 'movements'
+  const [view,       setView]       = useState('stock');   // 'stock' | 'movements'
   const [stock,      setStock]      = useState([]);
   const [movements,  setMovements]  = useState([]);
   const [search,     setSearch]     = useState('');
@@ -39,32 +39,26 @@ export default function Inventory({ initialView = 'stock', lowOnly = false }) {
   const [saving,     setSaving]     = useState(false);
 
   const loadStock = useCallback(async () => {
+    setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (search)  params.set('search', search);
-      if (lowOnly) params.set('low_stock', 'true');
-      const data = await api.get(`/inventory/stock?${params}`);
+      const data = await api.get(`/inventory/stock${search ? `?search=${encodeURIComponent(search)}` : ''}`);
       setStock(data.products || []);
-      setError(null);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
-  }, [api, search, lowOnly]);
+  }, [api, search]);
 
   const loadMovements = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await api.get('/inventory/movements?limit=50');
       setMovements(data.movements || []);
-      setError(null);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, [api]);
 
   useEffect(() => {
-    // loaders only set state after the network await, never synchronously
-    (async () => {
-      if (view === 'stock') await loadStock();
-      else await loadMovements();
-    })();
+    if (view === 'stock') loadStock();
+    else loadMovements();
   }, [view, loadStock, loadMovements]);
 
   const openAdj = async () => {
@@ -97,7 +91,7 @@ export default function Inventory({ initialView = 'stock', lowOnly = false }) {
 
       <div className="im-page-header">
         <div>
-          <h1 className="im-page-title">{lowOnly ? 'Low Stock' : 'Inventory'}</h1>
+          <h1 className="im-page-title">Inventory</h1>
           <p className="im-page-sub">Stock levels and movement history</p>
         </div>
         <button className="im-btn-primary" onClick={openAdj}>+ Adjustment</button>
@@ -107,10 +101,10 @@ export default function Inventory({ initialView = 'stock', lowOnly = false }) {
 
       {/* View toggle */}
       <div className="im-tabs">
-        <button className={`im-tab ${view === 'stock' ? 'active' : ''}`} onClick={() => { setLoading(true); setView('stock'); }}>
+        <button className={`im-tab ${view === 'stock' ? 'active' : ''}`} onClick={() => setView('stock')}>
           Stock levels
         </button>
-        <button className={`im-tab ${view === 'movements' ? 'active' : ''}`} onClick={() => { setLoading(true); setView('movements'); }}>
+        <button className={`im-tab ${view === 'movements' ? 'active' : ''}`} onClick={() => setView('movements')}>
           Movement history
         </button>
       </div>

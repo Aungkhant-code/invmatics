@@ -17,9 +17,5 @@ export const NAV = [
   { label: 'Customers',  icon: 'customers', key: 'customers'  },
   { label: 'Suppliers',  icon: 'suppliers', key: 'suppliers'  },
   { label: 'Reports',    icon: 'reports',   key: 'reports'    },
-  { label: 'Settings',   icon: 'settings',  key: 'settings',
-    children: [
-      { label: 'Staff & Access', key: 'staff' },
-    ]
-  },
+  { label: 'Settings',   icon: 'settings',  key: 'settings'   },
 ];

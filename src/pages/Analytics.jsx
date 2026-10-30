@@ -36,6 +36,8 @@ export default function Analytics() {
   const [error,      setError]      = useState(null);
 
   const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const [sum, reportData] = await Promise.all([
         api.get(`/analytics/summary?period=${period}`),
@@ -49,15 +51,11 @@ export default function Analytics() {
       ]);
       setSummary(sum);
       setData(reportData);
-      setError(null);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, [api, period, report]);
 
-  useEffect(() => {
-    // load() only sets state after the network await, never synchronously
-    (async () => { await load(); })();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const renderTable = () => {
     if (loading) return (
@@ -164,7 +162,7 @@ export default function Analytics() {
         <div className="im-panel-tabs">
           {PERIODS.map(p => (
             <button key={p.key} className={`im-tab ${period === p.key ? 'active' : ''}`}
-              onClick={() => { setLoading(true); setPeriod(p.key); }}>
+              onClick={() => setPeriod(p.key)}>
               {p.label}
             </button>
           ))}
@@ -197,7 +195,7 @@ export default function Analytics() {
           <div className="im-panel-tabs">
             {REPORTS.map(r => (
               <button key={r.key} className={`im-tab ${report === r.key ? 'active' : ''}`}
-                onClick={() => { setLoading(true); setReport(r.key); }}>
+                onClick={() => setReport(r.key)}>
                 {r.label}
               </button>
             ))}

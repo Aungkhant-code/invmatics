@@ -30,19 +30,16 @@ export default function Invoices() {
   const [saving,   setSaving]   = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const params = tab !== 'all' ? `?status=${tab}` : '';
       const data = await api.get(`/invoices${params}`);
       setInvoices(data.invoices || []);
-      setError(null);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, [api, tab]);
 
-  useEffect(() => {
-    // load() only sets state after the network await, never synchronously
-    (async () => { await load(); })();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const downloadPDF = async (invoiceNumber) => {
     try {

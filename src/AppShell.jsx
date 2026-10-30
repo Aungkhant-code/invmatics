@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { useAuth } from '@clerk/react';
 import './AppShell.css';
 
-import Sidebar     from './shell/Sidebar';
-import Topbar      from './shell/Topbar';
-import Placeholder from './shell/Placeholder';
+import Sidebar from './shell/Sidebar';
+import Topbar  from './shell/Topbar';
 
 import Dashboard from './pages/Dashboard';
 import Catalog   from './pages/Catalog';
@@ -16,26 +15,34 @@ import Invoices  from './pages/Invoices';
 import Analytics from './pages/Analytics';
 import Staff     from './pages/Staff';
 
-// Keys here must match the keys in shell/nav.js (that's what the sidebar emits).
-// Anything not listed falls through to the "coming soon" placeholder.
+function Placeholder({ page }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100%', color: '#6B7280', fontFamily: 'sans-serif', fontSize: 14,
+    }}>
+      {page} — coming soon
+    </div>
+  );
+}
+
 const PAGES = {
-  dashboard: { Component: Dashboard },
-  products:  { Component: Catalog },
-  movements: { Component: Inventory, props: { initialView: 'movements' } },
-  lowstock:  { Component: Inventory, props: { lowOnly: true } },
-  sales:     { Component: Orders },
-  invoices:  { Component: Invoices },
-  customers: { Component: Customers },
-  suppliers: { Component: Suppliers },
-  reports:   { Component: Analytics },
-  staff:     { Component: Staff },
+  dashboard: Dashboard,
+  catalog:   Catalog,
+  inventory: Inventory,
+  orders:    Orders,
+  customers: Customers,
+  suppliers: Suppliers,
+  invoices:  Invoices,
+  analytics: Analytics,
+  staff:     Staff,
 };
 
 export default function AppShell() {
   const [page, setPage] = useState('dashboard');
   const { signOut } = useAuth();
 
-  const entry = PAGES[page];
+  const PageComponent = PAGES[page] || Placeholder;
 
   return (
     <div className="im-shell">
@@ -47,9 +54,7 @@ export default function AppShell() {
       <div className="im-main">
         <Topbar page={page} />
         <main className="im-content">
-          {entry
-            ? <entry.Component key={page} {...(entry.props || {})} />
-            : <Placeholder page={page} />}
+          <PageComponent />
         </main>
       </div>
     </div>

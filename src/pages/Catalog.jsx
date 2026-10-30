@@ -28,18 +28,15 @@ export default function Catalog() {
   const [editId,   setEditId]     = useState(null);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await api.get(`/products${search ? `?search=${encodeURIComponent(search)}` : ''}`);
       setProducts(data.products || []);
-      setError(null);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, [api, search]);
 
-  useEffect(() => {
-    // load() only sets state after the network await, never synchronously
-    (async () => { await load(); })();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true); };
   const openEdit = (p) => {

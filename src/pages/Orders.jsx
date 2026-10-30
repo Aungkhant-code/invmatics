@@ -29,21 +29,18 @@ export default function Orders() {
   const [search,   setSearch]   = useState('');
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const params = new URLSearchParams();
       if (tab !== 'all') params.set('status', tab);
       if (search) params.set('search', search);
       const data = await api.get(`/orders/sales?${params}`);
       setOrders(data.orders || []);
-      setError(null);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, [api, tab, search]);
 
-  useEffect(() => {
-    // load() only sets state after the network await, never synchronously
-    (async () => { await load(); })();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const dispatch = async (id) => {
     if (!confirm('Mark this order as dispatched? This will reduce stock levels.')) return;
@@ -61,17 +58,11 @@ export default function Orders() {
     } catch (e) { setError(e.message); }
   };
 
-  const downloadDO = async (orderId) => {
+  const downloadDO = async (orderNumber) => {
     try {
-      const data = await api.get(`/delivery-orders?sales_order_id=${orderId}`);
-      const dos = data.delivery_orders || [];
-      if (dos.length === 0) {
-        setError('No delivery order has been created for this order yet');
-        return;
-      }
-      const url = await api.pdf(`/delivery-orders/${dos[0].do_number}/pdf`);
+      const url = await api.pdf(`/delivery-orders/${orderNumber}/pdf`);
       window.open(url, '_blank');
-    } catch (e) { setError(e.message); }
+    } catch (e) { setError('No delivery order found for this order'); }
   };
 
   return (
@@ -153,7 +144,7 @@ export default function Orders() {
                       Mark paid
                     </button>
                   )}
-                  <button className="im-btn-ghost" onClick={() => downloadDO(selected.id)}>
+                  <button className="im-btn-ghost" onClick={() => downloadDO(selected.order_number)}>
                     Delivery order PDF
                   </button>
                 </div>

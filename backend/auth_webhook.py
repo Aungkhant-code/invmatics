@@ -126,60 +126,6 @@ def _set_clerk_metadata(clerk_user_id: str, org_id: str, role: str = "admin"):
 # EVENT HANDLERS
 # ================================================================
 
-def _find_pending_invitation(email: str):
-    """Newest unaccepted, unexpired invitation for this email, or None."""
-    if not email:
-        return None
-    now = datetime.now(timezone.utc).isoformat()
-    res = (
-        db_admin.table("invitations")
-        .select("*")
-        .eq("email", email.strip().lower())
-        .is_("accepted_at", "null")
-        .gt("expires_at", now)
-        .order("created_at", desc=True)
-        .limit(1)
-        .execute()
-    )
-    return res.data[0] if res.data else None
-
-
-def _join_invited_org(clerk_user_id: str, email: str, full_name: str, invite: dict) -> dict:
-    """Attach a newly signed-up user to the organisation that invited them."""
-    org_id = invite["org_id"]
-    role   = invite["role"]
-
-    user_result = db_admin.table("users").insert({
-        "org_id":        org_id,
-        "clerk_user_id": clerk_user_id,
-        "email":         email,
-        "full_name":     full_name,
-        "role":          role,
-        "is_active":     True,
-        "invited_by":    invite.get("invited_by"),
-        "last_login_at": datetime.now(timezone.utc).isoformat(),
-    }).execute()
-    if not user_result.data:
-        raise Exception("Failed to create invited user")
-
-    db_admin.table("invitations").update(
-        {"accepted_at": datetime.now(timezone.utc).isoformat()}
-    ).eq("id", invite["id"]).execute()
-
-    try:
-        _set_clerk_metadata(clerk_user_id, org_id, role)
-    except Exception as e:
-        print(f"Warning: Failed to set Clerk metadata for {clerk_user_id}: {e}")
-
-    return {
-        "event":               "user.created",
-        "org_id":              org_id,
-        "user_id":             user_result.data[0]["id"],
-        "email":               email,
-        "joined_existing_org": True,
-    }
-
-
 def _handle_user_created(data: dict) -> dict:
     """
     On new signup:
@@ -193,15 +139,6 @@ def _handle_user_created(data: dict) -> dict:
     first_name    = data.get("first_name") or ""
     last_name     = data.get("last_name") or ""
     full_name     = f"{first_name} {last_name}".strip() or email.split("@")[0]
-
-    # Invited staff join the inviting organisation instead of getting their own.
-    # Only trust an invitation when Clerk reports the email as verified
-    # (signups through the invitation link arrive pre-verified).
-    email_info = (data.get("email_addresses") or [{}])[0]
-    email_verified = (email_info.get("verification") or {}).get("status") == "verified"
-    invite = _find_pending_invitation(email) if email_verified else None
-    if invite:
-        return _join_invited_org(clerk_user_id, email, full_name, invite)
 
     org_name  = f"{full_name}'s Business"
     base_slug = _slugify(full_name)
