@@ -44,7 +44,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isLoaded) return;
-    if ((path === '/sign-in' || path === '/sign-up') && isSignedIn) {
+    if ((path.startsWith('/sign-in') || path.startsWith('/sign-up')) && isSignedIn) {
       window.location.href = '/app';
     } else if (path.startsWith('/app') && isSignedIn === false) {
       window.location.href = '/sign-in';
@@ -56,7 +56,7 @@ export default function App() {
   if (!isLoaded) return <LoadingScreen />;
 
   // ── Sign-in ──────────────────────────────────────────────────────
-  if (path === '/sign-in') {
+  if (path.startsWith('/sign-in')) {
     if (isSignedIn) return null;
     return (
       <AuthPage>
@@ -72,7 +72,7 @@ export default function App() {
   }
 
   // ── Sign-up ──────────────────────────────────────────────────────
-  if (path === '/sign-up') {
+  if (path.startsWith('/sign-up')) {
     if (isSignedIn) return null;
     return (
       <AuthPage>
