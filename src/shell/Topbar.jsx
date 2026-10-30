@@ -1,8 +1,10 @@
+import { UserButton, useUser } from '@clerk/react';
 import { NAV } from './nav';
 
 export default function Topbar({ page }) {
   const label = NAV.flatMap(n => n.children ? [n, ...n.children] : [n])
     .find(n => n.key === page)?.label || 'Dashboard';
+  const { user } = useUser();
 
   return (
     <header className="im-topbar">
@@ -10,8 +12,9 @@ export default function Topbar({ page }) {
         <h1 className="im-page-title">{label}</h1>
       </div>
       <div className="im-topbar-right">
-        <div className="im-company-name">Somchai Trading Co.</div>
-        <div className="im-avatar">ST</div>
+        {user?.organizationMemberships?.[0]?.organization?.name ||
+          user?.fullName || ''}
+        <UserButton afterSignOutUrl="/" />
       </div>
     </header>
   );

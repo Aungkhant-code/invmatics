@@ -20,6 +20,7 @@ from invoices     import router as invoices_router
 from quotations   import router as quotations_router
 from delivery     import router as delivery_router
 from receipts     import router as receipts_router
+from users        import router as users_router
 
 app = FastAPI(
     title="Invmatics Systems API",
@@ -37,6 +38,7 @@ app.add_middleware(
 
 # Auth
 app.include_router(auth_router,      prefix="/api")
+app.include_router(users_router,     prefix="/api")
 
 # Core operations
 app.include_router(products_router,  prefix="/api")

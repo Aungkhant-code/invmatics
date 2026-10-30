@@ -73,7 +73,7 @@ const FEATURES = [
 ]
 
 // ── Navbar ─────────────────────────────────────────────────────────
-function Nav({ onStart }) {
+function Nav() {
   return (
     <nav className="lp-nav">
       <div className="lp-container">
@@ -89,7 +89,10 @@ function Nav({ onStart }) {
             <li><a href="#highlights">Highlights</a></li>
             <li><a href="#pricing">Pricing</a></li>
           </ul>
-          <button className="lp-nav-cta" onClick={onStart}>Get started</button>
+          <div className="lp-nav-auth">
+            <a href="/sign-in" className="lp-nav-signin">Sign in</a>
+            <a href="/sign-up" className="lp-nav-cta">Get started</a>
+          </div>
         </div>
       </div>
     </nav>
@@ -615,7 +618,7 @@ function Footer() {
 export default function Landing({ onStart }) {
   return (
     <>
-      <Nav onStart={onStart} />
+      <Nav />
       <Hero onStart={onStart} />
       <Stats />
       <Features />

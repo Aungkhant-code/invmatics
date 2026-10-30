@@ -8,8 +8,9 @@ Production: set directly in Vercel / Railway environment
 import os
 from dotenv import load_dotenv
 
-# Load .env in local dev — no-op in production
+# Load .env then .env.local (local overrides) — no-ops in production
 load_dotenv()
+load_dotenv('.env.local', override=True)
 
 
 def _require(key: str) -> str:
@@ -47,4 +48,9 @@ ALLOWED_ORIGINS = (
     ["http://localhost:5173", "http://localhost:3000"]
     if IS_DEV
     else [o.strip() for o in _optional("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+)
+
+# ── Frontend URL (used for invitation email redirect links) ────────
+FRONTEND_URL = _optional("FRONTEND_URL") or (
+    "http://localhost:5173" if IS_DEV else (ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "")
 )

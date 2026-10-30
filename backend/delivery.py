@@ -40,6 +40,7 @@ def _fetch_org(client, org_id: str) -> dict:
 async def list_delivery_orders(
     status:      Optional[str]  = None,
     customer_id: Optional[UUID] = None,
+    sales_order_id: Optional[UUID] = None,
     user:   dict = Depends(require_auth),
     client       = Depends(get_client),
 ):
@@ -52,6 +53,8 @@ async def list_delivery_orders(
         query = query.eq("status", status)
     if customer_id:
         query = query.eq("customer_id", str(customer_id))
+    if sales_order_id:
+        query = query.eq("sales_order_id", str(sales_order_id))
 
     result = query.execute()
     return {"delivery_orders": result.data or [], "count": len(result.data or [])}

@@ -98,6 +98,22 @@ def _verify_token(token: str) -> dict:
 
 # ── FastAPI dependencies ───────────────────────────────────────────
 
+VALID_ROLES = {"admin", "manager", "sales", "warehouse", "finance"}
+
+
+def _app_role(claims: dict) -> str:
+    """
+    The user's Invmatics role from the JWT.
+
+    Supabase reserves the JWT `role` claim for the *Postgres* role (it expects
+    "authenticated"), so the app role should be sent as `app_role`. We fall back
+    to `role` for older templates, but only when it's a real app role, and
+    otherwise default to the least-privileged one.
+    """
+    role = claims.get("app_role") or claims.get("role")
+    return role if role in VALID_ROLES else "warehouse"
+
+
 def require_auth(authorization: str = Header(None)) -> dict:
     """
     FastAPI dependency — verifies JWT and returns user context.
@@ -124,7 +140,7 @@ def require_auth(authorization: str = Header(None)) -> dict:
         "token":          token,
         "clerk_user_id":  claims.get("sub"),
         "org_id":         org_id,
-        "role":           claims.get("role", "warehouse"),
+        "role":           _app_role(claims),
         "email":          claims.get("email"),
         "claims":         claims,
     }

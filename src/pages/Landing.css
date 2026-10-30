@@ -85,6 +85,26 @@
 
 .lp-nav-links a:hover { color: #0f172a; }
 
+.lp-nav-auth {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lp-nav-signin {
+  background: none;
+  border: none;
+  color: #475569;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 9px 14px;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+
+.lp-nav-signin:hover { color: #0f172a; }
+
 .lp-nav-cta {
   background: #0f172a;
   color: #fff;
