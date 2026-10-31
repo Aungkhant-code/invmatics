@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import Response
 
 from database import db_admin
+from org_sync import ensure_org_name
 from auth import require_auth, get_client
 from models import InvoiceCreate, InvoiceUpdate, RecordPayment
 from pdf_service import generate_invoice_pdf
@@ -64,7 +65,7 @@ def _fetch_org(client, org_id: str) -> dict:
     )
     if not result.data:
         raise HTTPException(status_code=404, detail="Organisation not found")
-    return result.data
+    return ensure_org_name(result.data)
 
 
 # ================================================================

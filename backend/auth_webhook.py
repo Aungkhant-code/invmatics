@@ -29,6 +29,7 @@ from fastapi import APIRouter, Request, HTTPException, Header, Depends
 
 from database import db_admin
 from config import CLERK_SECRET_KEY, CLERK_WEBHOOK_SECRET
+from org_sync import ensure_org_name, is_placeholder, apply_org_name
 from auth import require_auth, get_client
 
 router = APIRouter()
@@ -224,6 +225,77 @@ def _handle_user_deleted(data: dict) -> dict:
     return {"event": "user.deleted", "clerk_user_id": clerk_user_id}
 
 
+class RetryLater(Exception):
+    """Raised when an event can't be applied yet; the webhook answers 503 so Clerk retries."""
+
+
+def _name_org_from_clerk(clerk_user_id, clerk_org_id, clerk_org_name, event: str) -> dict:
+    """
+    First-time naming: copy a Clerk organization's name onto the user's organisation.
+
+    Guards, so a teammate can't rename your company:
+      - only while our org still has the signup placeholder name, and
+      - only when the person who created/joined the Clerk org is an admin of it.
+    """
+    name = (clerk_org_name or "").strip()
+    if not (clerk_user_id and name):
+        return {"event": event, "skipped": "no user or name in payload"}
+
+    me = (
+        db_admin.table("users").select("org_id, role")
+        .eq("clerk_user_id", clerk_user_id).limit(1).execute()
+    )
+    if not me.data:
+        # organization.* can arrive before user.created has been processed
+        raise RetryLater(f"user {clerk_user_id} not synced yet")
+
+    row = me.data[0]
+    if row["role"] != "admin":
+        return {"event": event, "skipped": "user is not an admin"}
+
+    org = (
+        db_admin.table("organisations").select("id, name")
+        .eq("id", row["org_id"]).limit(1).execute()
+    )
+    if not org.data:
+        return {"event": event, "skipped": "organisation not found"}
+    if not is_placeholder(org.data[0]["name"]):
+        return {"event": event, "skipped": "organisation already named"}
+
+    apply_org_name(row["org_id"], name, clerk_org_id)
+    return {"event": event, "org_id": row["org_id"], "name": name}
+
+
+def _handle_organization_created(data: dict) -> dict:
+    return _name_org_from_clerk(
+        data.get("created_by"), data.get("id"), data.get("name"), "organization.created"
+    )
+
+
+def _handle_membership_created(data: dict) -> dict:
+    org = data.get("organization") or {}
+    user_id = (data.get("public_user_data") or {}).get("user_id")
+    return _name_org_from_clerk(
+        user_id, org.get("id"), org.get("name"), "organizationMembership.created"
+    )
+
+
+def _handle_organization_updated(data: dict) -> dict:
+    """Renames in Clerk flow through — needs organisations.clerk_org_id (see org_sync.py)."""
+    clerk_org_id = data.get("id")
+    name = (data.get("name") or "").strip()
+    if not (clerk_org_id and name):
+        return {"event": "organization.updated", "skipped": "no id or name"}
+    try:
+        res = (
+            db_admin.table("organisations").update({"name": name})
+            .eq("clerk_org_id", clerk_org_id).execute()
+        )
+    except Exception as e:
+        return {"event": "organization.updated", "skipped": f"clerk_org_id column unavailable: {e}"}
+    return {"event": "organization.updated", "updated": len(res.data or [])}
+
+
 # ================================================================
 # WEBHOOK ENDPOINT
 # ================================================================
@@ -262,6 +334,9 @@ async def clerk_webhook(
         "user.created": _handle_user_created,
         "user.updated": _handle_user_updated,
         "user.deleted": _handle_user_deleted,
+        "organization.created": _handle_organization_created,
+        "organization.updated": _handle_organization_updated,
+        "organizationMembership.created": _handle_membership_created,
     }
 
     handler = handlers.get(event_type)
@@ -269,6 +344,9 @@ async def clerk_webhook(
         try:
             result = handler(data)
             return {"status": "ok", **result}
+        except RetryLater as e:
+            # 503 makes Clerk retry later (e.g. the org event beat user.created)
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             print(f"Webhook handler error for {event_type}: {e}")
             return {"status": "error", "detail": str(e)}
@@ -328,7 +406,7 @@ async def get_me(
 
     return {
         "user":     user_result.data,
-        "org":      org_result.data,
+        "org":      ensure_org_name(org_result.data),
         "settings": settings_result.data,
         "role":     user["role"],
         "org_id":   user["org_id"],

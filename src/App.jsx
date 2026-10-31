@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
-import { useAuth, SignIn, SignUp } from '@clerk/react';
-import Landing  from './pages/Landing';
-import AppShell from './AppShell';
+import { useAuth } from '@clerk/react';
+import Landing    from './pages/Landing';
+import SignInPage from './pages/SignInPage';
+import SignUpPage from './pages/SignUpPage';
+import AppShell   from './AppShell';
 
 function LoadingScreen() {
   return (
@@ -15,28 +17,6 @@ function LoadingScreen() {
     </div>
   );
 }
-
-function AuthPage({ children }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '100vh', background: '#0F172A',
-    }}>
-      {children}
-    </div>
-  );
-}
-
-const CLERK_APPEARANCE = {
-  variables: {
-    colorPrimary:         '#10B981',
-    colorBackground:      '#1E293B',
-    colorText:            '#F1F5F9',
-    colorInputBackground: '#0F172A',
-    colorInputText:       '#F1F5F9',
-    borderRadius:         '8px',
-  },
-};
 
 export default function App() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -58,33 +38,13 @@ export default function App() {
   // ── Sign-in ──────────────────────────────────────────────────────
   if (path.startsWith('/sign-in')) {
     if (isSignedIn) return null;
-    return (
-      <AuthPage>
-        <SignIn
-          routing="path"
-          path="/sign-in"
-          signUpUrl="/sign-up"
-          fallbackRedirectUrl="/app"
-          appearance={CLERK_APPEARANCE}
-        />
-      </AuthPage>
-    );
+    return <SignInPage />;
   }
 
   // ── Sign-up ──────────────────────────────────────────────────────
   if (path.startsWith('/sign-up')) {
     if (isSignedIn) return null;
-    return (
-      <AuthPage>
-        <SignUp
-          routing="path"
-          path="/sign-up"
-          signInUrl="/sign-in"
-          fallbackRedirectUrl="/app"
-          appearance={CLERK_APPEARANCE}
-        />
-      </AuthPage>
-    );
+    return <SignUpPage />;
   }
 
   // ── Protected app ────────────────────────────────────────────────
