@@ -3,6 +3,13 @@ Invmatics Systems — FastAPI Application
 All routers registered, CORS from config, no hardcoded values.
 """
 
+import os
+import sys
+
+# Vercel imports this file by path, so its own folder isn't on sys.path;
+# without this, `from config import ...` and every other sibling import fails.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

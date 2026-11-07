@@ -39,7 +39,6 @@ from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from weasyprint import HTML
 
 # ----------------------------------------------------------------
 # Setup
@@ -58,6 +57,7 @@ with open(TEMPLATES_DIR / "base.css", "r", encoding="utf-8") as f:
 
 def _render(template_name: str, context: dict[str, Any]) -> bytes:
     """Render a Jinja2 template to PDF bytes."""
+    from weasyprint import HTML   # lazy: the API still boots where Pango is missing
     template = _env.get_template(template_name)
     html_string = template.render(base_css=BASE_CSS, **context)
     return HTML(string=html_string).write_pdf()
