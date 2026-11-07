@@ -3,7 +3,7 @@
  * Real data from /api/products
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
 
 function fmt(n) {
@@ -14,6 +14,7 @@ function fmt(n) {
 const EMPTY_FORM = {
   name: '', sku: '', unit: 'unit', description: '',
   cost_price: '', selling_price: '', reorder_point: '', reorder_qty: '',
+  qty_on_hand: '',
 };
 
 export default function Catalog() {
@@ -26,26 +27,42 @@ export default function Catalog() {
   const [saving,   setSaving]     = useState(false);
   const [error,    setError]      = useState(null);
   const [editId,   setEditId]     = useState(null);
+  const [startQty, setStartQty]   = useState(0);   // stock when the edit modal opened
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.get(`/products${search ? `?search=${encodeURIComponent(search)}` : ''}`);
-      setProducts(data.products || []);
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
-  }, [api, search]);
+  const [debounced, setDebounced] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
+  const load = () => setReloadKey(k => k + 1);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true); };
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api.get(`/products${debounced ? `?search=${encodeURIComponent(debounced)}` : ''}`);
+        if (!cancelled) { setProducts(data.products || []); setError(null); }
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [api, debounced, reloadKey]);
+
+  const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setStartQty(0); setShowModal(true); };
   const openEdit = (p) => {
     setForm({
       name: p.name, sku: p.sku, unit: p.unit || 'unit',
       description: p.description || '',
       cost_price: p.cost_price, selling_price: p.selling_price,
       reorder_point: p.reorder_point, reorder_qty: p.reorder_qty,
+      qty_on_hand: p.stock_levels?.qty_on_hand ?? 0,
     });
+    setStartQty(p.stock_levels?.qty_on_hand ?? 0);
     setEditId(p.id);
     setShowModal(true);
   };
@@ -53,17 +70,32 @@ export default function Catalog() {
   const save = async () => {
     setSaving(true);
     try {
+      const { qty_on_hand, ...rest } = form;
       const body = {
-        ...form,
+        ...rest,
         cost_price:    parseFloat(form.cost_price)    || 0,
         selling_price: parseFloat(form.selling_price) || 0,
         reorder_point: parseInt(form.reorder_point)   || 0,
         reorder_qty:   parseInt(form.reorder_qty)     || 0,
       };
-      if (editId) {
-        await api.put(`/products/${editId}`, body);
-      } else {
-        await api.post('/products', body);
+      const saved = editId
+        ? await api.put(`/products/${editId}`, body)
+        : await api.post('/products', body);
+
+      // Stock isn't a product field: it changes through a logged stock adjustment.
+      const wanted = Math.max(0, parseInt(qty_on_hand) || 0);
+      const diff = wanted - (editId ? startQty : 0);
+      if (diff !== 0) {
+        try {
+          await api.post('/inventory/adjust', {
+            product_id:    saved.id,
+            movement_type: 'adjustment',
+            qty_change:    diff,
+            notes:         editId ? 'Edited on product page' : 'Opening stock',
+          });
+        } catch (e) {
+          setError(`Product saved, but the stock change failed: ${e.message}`);
+        }
       }
       setShowModal(false);
       load();
@@ -201,6 +233,11 @@ export default function Catalog() {
                 <div className="im-field">
                   <label>Selling price</label>
                   <input type="number" value={form.selling_price} onChange={e => setForm(f => ({ ...f, selling_price: e.target.value }))} />
+                </div>
+                <div className="im-field">
+                  <label>{editId ? 'Stock on hand' : 'Opening stock'}</label>
+                  <input type="number" min="0" value={form.qty_on_hand}
+                    onChange={e => setForm(f => ({ ...f, qty_on_hand: e.target.value }))} />
                 </div>
                 <div className="im-field">
                   <label>Reorder point</label>
