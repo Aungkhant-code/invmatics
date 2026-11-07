@@ -3,7 +3,7 @@
  * Real data from /api/invoices
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
 
 function fmt(n) {
@@ -11,7 +11,7 @@ function fmt(n) {
   return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const STATUS_TABS = ['all', 'draft', 'sent', 'paid', 'overdue'];
+const STATUS_TABS = ['all', 'draft', 'sent', 'paid', 'overdue', 'void'];
 
 const STATUS_CLS = {
   draft: 'muted', sent: 'info', paid: 'ok', overdue: 'out', void: 'out',
@@ -20,26 +20,51 @@ const STATUS_CLS = {
 export default function Invoices() {
   const api = useApi();
 
-  const [invoices, setInvoices] = useState([]);
+  const [invoices, setInvoices] = useState(null);   // null = first load
   const [selected, setSelected] = useState(null);
   const [tab,      setTab]      = useState('all');
-  const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
   const [search,   setSearch]   = useState('');
   const [payForm,  setPayForm]  = useState(null);
   const [saving,   setSaving]   = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const load = () => setReloadKey(k => k + 1);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api.get(`/invoices${tab !== 'all' ? `?status=${tab}` : ''}`);
+        if (cancelled) return;
+        const list = data.invoices || [];
+        setInvoices(list);
+        setError(null);
+        // refresh the open panel's header data from the new list
+        setSelected(sel => sel ? (list.find(i => i.id === sel.id) ? { ...sel, ...list.find(i => i.id === sel.id) } : null) : null);
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [api, tab, reloadKey]);
+
+  // list rows lack payments; load the full invoice when one is opened
+  const open = async (inv) => {
+    setSelected(inv);
+    try { setSelected(await api.get(`/invoices/${inv.id}`)); }
+    catch (e) { setError(e.message); }
+  };
+
+  const setStatus = async (inv, status) => {
+    if (status === 'void' && !confirm(`Void invoice ${inv.invoice_number}? This can't be undone.`)) return;
+    setSaving(true);
     try {
-      const params = tab !== 'all' ? `?status=${tab}` : '';
-      const data = await api.get(`/invoices${params}`);
-      setInvoices(data.invoices || []);
+      await api.put(`/invoices/${inv.id}`, { status });
+      setSelected(s => s && s.id === inv.id ? { ...s, status } : s);
+      load();
     } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
-  }, [api, tab]);
-
-  useEffect(() => { load(); }, [load]);
+    finally { setSaving(false); }
+  };
 
   const downloadPDF = async (invoiceNumber) => {
     try {
@@ -61,29 +86,27 @@ export default function Invoices() {
         reference: payForm.reference || null,
         notes: payForm.notes || null,
       });
+      const id = payForm.invoice_id;
       setPayForm(null);
       load();
-      if (selected?.id === payForm.invoice_id) {
-        const detail = await api.get(`/invoices/${payForm.invoice_id}`);
-        setSelected(detail);
-      }
+      setSelected(await api.get(`/invoices/${id}`));
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };
 
   const filtered = search
-    ? invoices.filter(i =>
+    ? (invoices || []).filter(i =>
         i.invoice_number?.toLowerCase().includes(search.toLowerCase()) ||
         i.customers?.name?.toLowerCase().includes(search.toLowerCase())
       )
-    : invoices;
+    : (invoices || []);
 
   return (
     <div className="im-page">
       <div className="im-page-header">
         <div>
           <h1 className="im-page-title">Invoices</h1>
-          <p className="im-page-sub">{filtered.length} invoices</p>
+          <p className="im-page-sub">{invoices === null ? 'Loading…' : `${filtered.length} invoices`}</p>
         </div>
       </div>
 
@@ -105,7 +128,7 @@ export default function Invoices() {
       <div className="im-split-layout">
         <div className="im-split-list">
           <div className="im-panel">
-            {loading ? (
+            {invoices === null ? (
               Array(5).fill(0).map((_, i) => (
                 <div key={i} className="im-list-row">
                   <div className="im-skeleton" style={{ height: 14, width: '50%', marginBottom: 6 }} />
@@ -119,7 +142,7 @@ export default function Invoices() {
             ) : filtered.map(inv => (
               <div key={inv.id}
                 className={`im-list-row ${selected?.id === inv.id ? 'active' : ''}`}
-                onClick={() => setSelected(inv)}
+                onClick={() => open(inv)}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span className="im-mono" style={{ fontSize: 13, fontWeight: 700 }}>{inv.invoice_number}</span>
@@ -147,9 +170,19 @@ export default function Invoices() {
                   <button className="im-btn-ghost" onClick={() => downloadPDF(selected.invoice_number)}>
                     ↓ PDF
                   </button>
+                  {selected.status === 'draft' && (
+                    <button className="im-btn-primary" disabled={saving} onClick={() => setStatus(selected, 'sent')}>
+                      Mark as sent
+                    </button>
+                  )}
                   {selected.status !== 'paid' && selected.status !== 'void' && (
-                    <button className="im-btn-primary" onClick={() => openPayment(selected)}>
+                    <button className={selected.status === 'draft' ? 'im-btn-ghost' : 'im-btn-primary'} onClick={() => openPayment(selected)}>
                       Record payment
+                    </button>
+                  )}
+                  {selected.status !== 'paid' && selected.status !== 'void' && Number(selected.amount_paid) === 0 && (
+                    <button className="im-btn-ghost red" disabled={saving} onClick={() => setStatus(selected, 'void')}>
+                      Void
                     </button>
                   )}
                 </div>
@@ -159,6 +192,11 @@ export default function Invoices() {
                 <div className="im-detail-field"><span>Status</span>
                   <span className={`im-status-badge ${STATUS_CLS[selected.status]}`}>{selected.status}</span>
                 </div>
+                {selected.sales_orders?.order_number && (
+                  <div className="im-detail-field"><span>Sales order</span>
+                    <strong className="im-mono">{selected.sales_orders.order_number}</strong>
+                  </div>
+                )}
                 <div className="im-detail-field"><span>Invoice date</span><strong>{selected.invoice_date}</strong></div>
                 <div className="im-detail-field"><span>Due date</span>
                   <strong style={{ color: selected.status === 'overdue' ? 'var(--red)' : 'inherit' }}>
@@ -173,6 +211,25 @@ export default function Invoices() {
                   </strong>
                 </div>
               </div>
+
+              {selected.payments?.length > 0 && (
+                <>
+                  <div className="im-detail-section-title">Payments</div>
+                  <table className="im-table">
+                    <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th className="num">Amount</th></tr></thead>
+                    <tbody>
+                      {selected.payments.map(p => (
+                        <tr key={p.id}>
+                          <td>{p.paid_at}</td>
+                          <td>{(p.payment_method || '—').replace('_', ' ')}</td>
+                          <td>{p.reference || '—'}</td>
+                          <td className="num">{fmt(p.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
 
               {selected.invoice_items?.length > 0 && (
                 <>

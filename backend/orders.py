@@ -93,6 +93,7 @@ async def list_sales_orders(
         .select(
             "*, "
             "customers(name, contact_name, phone), "
+            "invoices(id, invoice_number, status), "
             "sales_order_items(id, product_id, description, qty_ordered, qty_dispatched, unit_price, line_total)"
         )
         .order("created_at", desc=True)

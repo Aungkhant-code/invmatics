@@ -12,7 +12,7 @@ function fmt(n) {
 }
 
 const EMPTY_LINE = { product_id: '', qty: '1', unit_price: '' };
-const EMPTY_FORM = { customer_id: '', due_date: '', customer_ref: '', notes: '', lines: [] };
+const EMPTY_FORM = { customer_id: '', due_date: '', customer_ref: '', notes: '', makeInvoice: true, lines: [] };
 
 const STATUS_TABS = ['all', 'draft', 'confirmed', 'dispatched', 'delivered', 'cancelled'];
 
@@ -85,7 +85,7 @@ export default function Orders() {
   const createOrder = async () => {
     setSaving(true);
     try {
-      await api.post('/orders/sales', {
+      const order = await api.post('/orders/sales', {
         customer_id:  form.customer_id,
         due_date:     form.due_date || null,
         customer_ref: form.customer_ref || null,
@@ -98,9 +98,13 @@ export default function Orders() {
       });
       setShowNew(false);
       setTab('all');
-      load();
       setSelected(null);
       setError(null);
+      if (form.makeInvoice) {
+        try { await api.post(`/orders/sales/${order.id}/invoice`); }
+        catch (e) { setError(`Order ${order.order_number} created, but the invoice failed: ${e.message}`); }
+      }
+      load();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };
@@ -119,6 +123,15 @@ export default function Orders() {
       await api.post(`/orders/sales/${id}/mark-paid`);
       load();
       if (selected?.id === id) setSelected(prev => ({ ...prev, payment_status: 'paid' }));
+    } catch (e) { setError(e.message); }
+  };
+
+  const createInvoice = async (order) => {
+    try {
+      const inv = await api.post(`/orders/sales/${order.id}/invoice`);
+      setSelected(s => s && s.id === order.id
+        ? { ...s, invoices: [{ id: inv.id, invoice_number: inv.invoice_number, status: inv.status }] } : s);
+      load();
     } catch (e) { setError(e.message); }
   };
 
@@ -209,6 +222,9 @@ export default function Orders() {
                       Mark paid
                     </button>
                   )}
+                  {!(selected.invoices || []).some(i => i.status !== 'void') && selected.status !== 'cancelled' && (
+                    <button className="im-btn-ghost" onClick={() => createInvoice(selected)}>Create invoice</button>
+                  )}
                   <button className="im-btn-ghost" onClick={() => downloadDO(selected.order_number)}>
                     Delivery order PDF
                   </button>
@@ -226,6 +242,11 @@ export default function Orders() {
                 </div>
                 <div className="im-detail-field"><span>Order date</span><strong>{selected.order_date}</strong></div>
                 {selected.due_date && <div className="im-detail-field"><span>Due</span><strong>{selected.due_date}</strong></div>}
+                {(selected.invoices || []).filter(i => i.status !== 'void').map(i => (
+                  <div className="im-detail-field" key={i.id}><span>Invoice</span>
+                    <strong className="im-mono">{i.invoice_number} · {i.status}</strong>
+                  </div>
+                ))}
                 {selected.customer_ref && <div className="im-detail-field"><span>Customer PO</span><strong>{selected.customer_ref}</strong></div>}
               </div>
 
@@ -337,6 +358,11 @@ export default function Orders() {
                 <label>Notes (shown on documents)</label>
                 <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
               </div>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 14, fontSize: 13, cursor: 'pointer' }}>
+                <input type="checkbox" checked={form.makeInvoice}
+                  onChange={e => setForm(f => ({ ...f, makeInvoice: e.target.checked }))} />
+                Also create a draft invoice for this order
+              </label>
             </div>
             <div className="im-modal-footer">
               <button className="im-btn-ghost" onClick={() => setShowNew(false)}>Cancel</button>
