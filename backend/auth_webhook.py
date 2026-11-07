@@ -140,7 +140,8 @@ def _handle_user_created(data: dict) -> dict:
     email         = pv._primary_email(data)
     full_name     = pv._full_name(data, email)
 
-    result = pv.provision_user(clerk_user_id, email=email, full_name=full_name or None)
+    result = pv.provision_user(clerk_user_id, email=email, full_name=full_name or None,
+                                public_metadata=data.get("public_metadata") or None)   # None -> provisioning asks Clerk
     return {
         "event":   "user.created",
         "org_id":  result["org_id"],
@@ -330,18 +331,19 @@ async def get_me(
     Returns the current user's profile, org, and settings.
     Used by the frontend on initial load to bootstrap the app.
     """
-    user_result = (
+    def first(builder):
+        rows = builder.limit(1).execute().data
+        return rows[0] if rows else None
+
+    me = first(
         client.table("users")
         .select("id, email, full_name, role, is_active, last_login_at")
         .eq("clerk_user_id", user["clerk_user_id"])
-        .single()
-        .execute()
     )
-
-    if not user_result.data:
+    if not me:
         raise HTTPException(status_code=404, detail="User not found in database")
 
-    org_result = (
+    org = first(
         client.table("organisations")
         .select(
             "id, name, slug, currency, timezone, country, plan, "
@@ -349,18 +351,16 @@ async def get_me(
             "email, phone, address, tax_id"
         )
         .eq("id", user["org_id"])
-        .single()
-        .execute()
     )
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found")
 
-    settings_result = (
+    org_settings = first(
         client.table("org_settings")
         .select(
             "default_payment_terms, default_tax_rate, default_invoice_notes, "
             "notify_low_stock, notify_overdue"
         )
-        .single()
-        .execute()
     )
 
     db_admin.table("users").update({
@@ -368,9 +368,9 @@ async def get_me(
     }).eq("clerk_user_id", user["clerk_user_id"]).execute()
 
     return {
-        "user":     user_result.data,
-        "org":      ensure_org_name(org_result.data),
-        "settings": settings_result.data,
+        "user":     me,
+        "org":      ensure_org_name(org),
+        "settings": org_settings,
         "role":     user["role"],
         "org_id":   user["org_id"],
     }

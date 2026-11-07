@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/react';
 import { clearCache } from './lib/cache';
 import './AppShell.css';
 
 import Sidebar from './shell/Sidebar';
+import { canOpen } from './shell/nav';
+import { useApi } from './lib/api';
 import Topbar  from './shell/Topbar';
 
 import Dashboard from './pages/Dashboard';
@@ -31,6 +33,15 @@ function Placeholder({ page }) {
   );
 }
 
+function NoAccess() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%',
+      color: '#6B7280', fontFamily: 'sans-serif', fontSize: 14, textAlign: 'center', padding: 24 }}>
+      Your role doesn't have access to this page. Ask an admin if you need it.
+    </div>
+  );
+}
+
 const PAGES = {
   dashboard: Dashboard,
   catalog:   Catalog,
@@ -54,13 +65,29 @@ const PAGES = {
 export default function AppShell() {
   const [page, setPage] = useState('dashboard');
   const { signOut } = useAuth();
+  const api = useApi();
+  const [role, setRole] = useState(null);
 
-  const PageComponent = PAGES[page] || Placeholder;
+  // Who am I? Decides which pages the sidebar offers.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const me = await api.get('/auth/me');
+        if (!cancelled) setRole(me.role);
+      } catch { /* leave role unset: sidebar shows nothing extra, pages still enforce on the API */ }
+    })();
+    return () => { cancelled = true; };
+  }, [api]);
+
+  // Only pages this role may open (the API enforces it too)
+  const PageComponent = (role === null || canOpen(role, page)) ? (PAGES[page] || Placeholder) : NoAccess;
 
   return (
     <div className="im-shell">
       <Sidebar
         active={page}
+        role={role}
         onNavigate={setPage}
         onSignOut={() => { clearCache(); signOut({ redirectUrl: '/' }); }}
       />

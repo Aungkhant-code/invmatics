@@ -1,0 +1,196 @@
+"""
+Invmatics Systems — Team management (admin only; enforced in permissions.py)
+
+    GET    /staff                    members + pending invitations
+    POST   /staff/invite             invite by email with a role (Clerk sends the email)
+    DELETE /staff/invites/{id}       revoke a pending invitation
+    PUT    /staff/{user_id}          change role / deactivate / reactivate
+
+Invitations are Clerk invitations carrying {org_id, role} in public_metadata. When the
+invitee signs up, provisioning.provision_user() sees that metadata and puts them in THIS
+organisation with THAT role instead of creating a new organisation.
+"""
+
+from typing import Optional
+from uuid import UUID
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from auth import require_auth, get_client, forget_member, db_user_id
+from config import CLERK_SECRET_KEY, FRONTEND_URL
+from database import db_admin
+from provisioning import sync_clerk_metadata
+
+router = APIRouter()
+
+ROLES = ("admin", "manager", "sales", "warehouse", "finance")
+CLERK_API = "https://api.clerk.com/v1"
+
+
+class InviteBody(BaseModel):
+    email: str
+    role:  str = "warehouse"
+
+
+class MemberUpdate(BaseModel):
+    role:      Optional[str]  = None
+    is_active: Optional[bool] = None
+
+
+def _clerk(method: str, path: str, **kw):
+    return httpx.request(
+        method, f"{CLERK_API}{path}",
+        headers={"Authorization": f"Bearer {CLERK_SECRET_KEY}", "Content-Type": "application/json"},
+        timeout=10, **kw,
+    )
+
+
+def _active_admins(client) -> int:
+    rows = client.table("users").select("id").eq("role", "admin").eq("is_active", True).execute().data
+    return len(rows or [])
+
+
+# ── List ───────────────────────────────────────────────────────────
+
+@router.get("/staff")
+async def list_staff(
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
+):
+    members = (
+        client.table("users")
+        .select("id, full_name, email, role, is_active, last_login_at, created_at")
+        .order("created_at")
+        .execute().data
+    ) or []
+
+    # Pending invitations for THIS org (Clerk can't filter by metadata, so filter here)
+    invites = []
+    try:
+        r = _clerk("GET", "/invitations", params={"status": "pending", "limit": 100})
+        if r.status_code == 200:
+            payload = r.json()
+            for i in (payload if isinstance(payload, list) else payload.get("data", [])):
+                meta = i.get("public_metadata") or {}
+                if str(meta.get("org_id")) == str(user["org_id"]):
+                    invites.append({
+                        "id":         i["id"],
+                        "email":      i.get("email_address"),
+                        "role":       meta.get("role"),
+                        "created_at": i.get("created_at"),
+                    })
+    except Exception as e:
+        print(f"Note: couldn't list Clerk invitations: {e}")
+
+    return {"members": members, "invites": invites, "me": db_user_id(user["clerk_user_id"])}
+
+
+# ── Invite ─────────────────────────────────────────────────────────
+
+@router.post("/staff/invite", status_code=201)
+async def invite(
+    body:   InviteBody,
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
+):
+    email = body.email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="Enter a valid email address")
+    if body.role not in ROLES:
+        raise HTTPException(status_code=400, detail=f"Role must be one of: {', '.join(ROLES)}")
+
+    already = client.table("users").select("id").eq("email", email).limit(1).execute().data
+    if already:
+        raise HTTPException(status_code=409, detail="That person is already on your team")
+
+    r = _clerk("POST", "/invitations", json={
+        "email_address":   email,
+        "public_metadata": {"org_id": str(user["org_id"]), "role": body.role},
+        "redirect_url":    f"{FRONTEND_URL.rstrip('/')}/sign-up",
+        "notify":          True,
+    })
+    if r.status_code not in (200, 201):
+        msg = ""
+        try:
+            msg = (r.json().get("errors") or [{}])[0].get("long_message") or ""
+        except Exception:
+            pass
+        if r.status_code == 422 or "already" in msg.lower():
+            raise HTTPException(
+                status_code=409,
+                detail=msg or "That email already has an account or a pending invitation.",
+            )
+        print(f"Clerk invitation failed: {r.status_code} {r.text[:300]}")
+        raise HTTPException(status_code=502, detail="Couldn't send the invitation. Please try again.")
+
+    inv = r.json()
+    return {"id": inv.get("id"), "email": email, "role": body.role}
+
+
+@router.delete("/staff/invites/{invite_id}", status_code=204)
+async def revoke_invite(
+    invite_id: str,
+    user:   dict = Depends(require_auth),
+):
+    # Only revoke invitations that belong to this org
+    r = _clerk("GET", "/invitations", params={"status": "pending", "limit": 100})
+    if r.status_code != 200:
+        raise HTTPException(status_code=502, detail="Couldn't reach the invitation service.")
+    payload = r.json()
+    items = payload if isinstance(payload, list) else payload.get("data", [])
+    mine = next((i for i in items if i.get("id") == invite_id
+                 and str((i.get("public_metadata") or {}).get("org_id")) == str(user["org_id"])), None)
+    if not mine:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    rv = _clerk("POST", f"/invitations/{invite_id}/revoke")
+    if rv.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail="Couldn't revoke the invitation.")
+    return None
+
+
+# ── Change role / deactivate ───────────────────────────────────────
+
+@router.put("/staff/{user_id}")
+async def update_member(
+    user_id: UUID,
+    body:    MemberUpdate,
+    user:    dict = Depends(require_auth),
+    client         = Depends(get_client),
+):
+    updates = body.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to change")
+    if "role" in updates and updates["role"] not in ROLES:
+        raise HTTPException(status_code=400, detail=f"Role must be one of: {', '.join(ROLES)}")
+
+    rows = client.table("users").select("id, clerk_user_id, role, is_active") \
+        .eq("id", str(user_id)).limit(1).execute().data
+    if not rows:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    target = rows[0]
+
+    losing_admin = target["role"] == "admin" and target["is_active"] and (
+        updates.get("role", "admin") != "admin" or updates.get("is_active", True) is False
+    )
+    if losing_admin and _active_admins(client) <= 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Your organisation needs at least one active admin. Make someone else an admin first.",
+        )
+    if target["clerk_user_id"] == user["clerk_user_id"] and updates.get("is_active") is False:
+        raise HTTPException(status_code=400, detail="You can't deactivate your own account.")
+
+    res = client.table("users").update(updates).eq("id", str(user_id)).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    member = res.data[0]
+
+    forget_member(target["clerk_user_id"])          # takes effect now on this instance
+    if "role" in updates:
+        # keep the Clerk token claim in step (best effort; the database is authoritative)
+        sync_clerk_metadata(target["clerk_user_id"], member["org_id"], member["role"])
+
+    return {k: member.get(k) for k in ("id", "full_name", "email", "role", "is_active")}

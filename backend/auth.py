@@ -12,6 +12,7 @@ can require auth with a single line:
 
 import jwt
 import httpx
+import time
 from functools import lru_cache
 from fastapi import Header, HTTPException, Depends
 from config import CLERK_SECRET_KEY
@@ -115,11 +116,36 @@ def _app_role(claims: dict):
     return role if role in VALID_ROLES else None
 
 
-@lru_cache(maxsize=512)
+# ── Who is this user, according to OUR database? ───────────────────
+#
+# The database (not the token) is the source of truth for org, role and active status:
+# a role change or deactivation must take effect without waiting for the Clerk token to
+# be re-issued. Looked up once per MEMBER_TTL seconds per server instance.
+
+MEMBER_TTL = 30
+_members: dict = {}          # clerk_user_id -> (expires_at, row)
+
+
+def forget_member(clerk_user_id: str) -> None:
+    """Drop a cached user (called after their role/status changes, on this instance)."""
+    _members.pop(clerk_user_id, None)
+
+
+def _member(clerk_user_id: str):
+    hit = _members.get(clerk_user_id)
+    now = time.monotonic()
+    if hit and hit[0] > now:
+        return hit[1]
+    row = _find_user(clerk_user_id)              # raises on DB errors; caller decides
+    if row:
+        _members[clerk_user_id] = (now + MEMBER_TTL, row)
+    return row
+
+
 def db_user_id(clerk_user_id: str):
     """users.id (uuid) for a Clerk user — what created_by / user_id columns expect."""
     try:
-        row = _find_user(clerk_user_id)
+        row = _member(clerk_user_id)
         return row["id"] if row else None
     except Exception:
         return None
@@ -127,14 +153,8 @@ def db_user_id(clerk_user_id: str):
 
 def require_auth(authorization: str = Header(None)) -> dict:
     """
-    FastAPI dependency — verifies JWT and returns user context.
-
-    Usage:
-        @router.get("/products")
-        async def list_products(user: dict = Depends(require_auth)):
-            org_id = user["org_id"]
-            role   = user["role"]
-            token  = user["token"]
+    FastAPI dependency — verifies the Clerk JWT and returns the user context:
+    {clerk_user_id, org_id, role, ...}. org_id / role come from our users table.
     """
     token = _extract_token(authorization)
     claims = _verify_token(token)
@@ -143,10 +163,23 @@ def require_auth(authorization: str = Header(None)) -> dict:
     org_id = claims.get("org_id")
     role   = _app_role(claims)
 
-    if not org_id:
-        # Signed in with Clerk but no organisation yet (the signup webhook didn't run,
-        # or this token was issued before it did). Create the account now. This is
-        # idempotent and race-safe, so parallel requests converge on one organisation.
+    try:
+        row = _member(clerk_user_id)
+    except Exception as e:
+        # Database hiccup: fall back to the token's claims rather than lock everyone out.
+        print(f"Member lookup failed for {clerk_user_id}: {e}")
+        row = None
+        if not (org_id and role):
+            raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please retry.")
+
+    if row:
+        if not row.get("is_active", True):
+            raise HTTPException(status_code=403, detail="This account has been deactivated.")
+        org_id, role = row["org_id"], row["role"]
+    else:
+        # Signed in with Clerk but no users row yet: a brand-new signup (webhook missed or
+        # still in flight) or an invited teammate. Creates the org, or joins the inviting
+        # org. Idempotent and race-safe, so parallel requests converge on one account.
         try:
             acct = provision_user(clerk_user_id)
         except Exception as e:
@@ -158,6 +191,9 @@ def require_auth(authorization: str = Header(None)) -> dict:
         if not acct["is_active"]:
             raise HTTPException(status_code=403, detail="This account has been deactivated.")
         org_id, role = acct["org_id"], acct["role"]
+        _members[clerk_user_id] = (time.monotonic() + MEMBER_TTL, {
+            "id": acct["user_id"], "org_id": org_id, "role": role, "is_active": True,
+        })
 
     return {
         "token":          token,

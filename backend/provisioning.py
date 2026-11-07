@@ -32,6 +32,8 @@ from org_sync import PLACEHOLDER_SUFFIX, apply_org_name, clerk_org_for_user
 
 CLERK_API = "https://api.clerk.com/v1"
 
+_ROLES = {"admin", "manager", "sales", "warehouse", "finance"}
+
 # (clerk_user_id, org_id, role) triples already written to Clerk by this process,
 # so a burst of requests doesn't PATCH Clerk once per request.
 _synced: set = set()
@@ -105,6 +107,21 @@ def _slug_taken(slug: str) -> bool:
     return bool(res.data)
 
 
+def _invited_membership(meta: Optional[dict]):
+    """
+    (org_id, role) when this Clerk user was INVITED to an existing organisation.
+    Invitations carry {org_id, role} in public_metadata, which only our backend can set
+    (users can't edit public_metadata themselves), so it can be trusted. The organisation
+    must still exist.
+    """
+    meta = meta or {}
+    org_id, role = meta.get("org_id"), meta.get("role")
+    if not org_id or role not in _ROLES:
+        return None
+    res = db_admin.table("organisations").select("id").eq("id", str(org_id)).limit(1).execute()
+    return (res.data[0]["id"], role) if res.data else None
+
+
 def _find_user(clerk_user_id: str) -> Optional[dict]:
     res = (
         db_admin.table("users")
@@ -141,6 +158,7 @@ def provision_user(
     *,
     email: Optional[str] = None,
     full_name: Optional[str] = None,
+    public_metadata: Optional[dict] = None,
 ) -> dict:
     """
     Ensure the Clerk user has an organisation and a users row.
@@ -159,11 +177,36 @@ def provision_user(
         return _result(existing, False)
 
     # 2. Ask Clerk who this is — BEFORE writing anything.
-    if not (email and full_name):
+    if not (email and full_name) or public_metadata is None:
         cu = fetch_clerk_user(clerk_user_id)
         email = email or _primary_email(cu)
         full_name = full_name or _full_name(cu, email)
+        if public_metadata is None:
+            public_metadata = cu.get("public_metadata") or {}
     full_name = full_name or (email.split("@")[0] if email else "New user")
+
+    # 2b. Invited teammate? Join the inviting organisation instead of creating a new one.
+    invited = _invited_membership(public_metadata)
+    if invited:
+        inv_org, inv_role = invited
+        try:
+            rows = db_admin.table("users").insert({
+                "org_id":        inv_org,
+                "clerk_user_id": clerk_user_id,
+                "email":         email or "",
+                "full_name":     full_name,
+                "role":          inv_role,
+                "is_active":     True,
+                "last_login_at": datetime.now(timezone.utc).isoformat(),
+            }).execute().data
+            if not rows:
+                raise RuntimeError("Failed to create user")
+            return _result(rows[0], True)
+        except Exception:
+            winner = _find_user(clerk_user_id)      # lost a race: use the existing row
+            if winner:
+                return _result(winner, False)
+            raise
 
     # 3. Use the organization name entered at sign-up, if Clerk has one.
     clerk_org_id, org_name = None, None

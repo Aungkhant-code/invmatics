@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Icon, ICONS } from './Icon';
-import { NAV } from './nav';
+import { navFor } from './nav';
 
-export default function Sidebar({ active, onNavigate }) {
+export default function Sidebar({ active, onNavigate, role }) {
+  const nav = navFor(role);
   const [expanded, setExpanded] = useState({ inventory: true, orders: false });
 
   function toggle(key) {
@@ -22,7 +23,7 @@ export default function Sidebar({ active, onNavigate }) {
       </div>
 
       <nav className="im-nav">
-        {NAV.map(item => (
+        {nav.map(item => (
           <div key={item.key}>
             <button
               className={`im-nav-item ${active === item.key || (item.children && item.children.some(c => c.key === active)) ? 'active' : ''}`}

@@ -62,6 +62,7 @@ export default function Dashboard() {
   const [loading,   setLoading]   = useState(() => !readCache(userId, 'dash:summary:this_month'));
   const [sideLoading, setSideLoading] = useState(() => !readCache(userId, 'dash:low'));
   const [error,     setError]     = useState(null);
+  const [restricted, setRestricted] = useState(false);   // role can't see revenue/finance figures
   const [fetchedPeriod, setFetchedPeriod] = useState(() => readCache(userId, 'dash:fin:this_month') ? 'this_month' : null);
 
   // Period-dependent data
@@ -74,6 +75,7 @@ export default function Dashboard() {
           api.get(`/analytics/financial-summary?period=${period}`),
         ]);
         if (cancelled) return;
+        setRestricted(false);
         setSummary(sum);
         setFinancial(fin);
         setFetchedPeriod(period);
@@ -81,7 +83,10 @@ export default function Dashboard() {
         writeCache(userId, `dash:fin:${period}`, fin);
         setError(null);
       } catch (e) {
-        if (!cancelled) setError(e.message);
+        if (cancelled) return;
+        // Roles without report access (sales, warehouse) still get the stock and orders panels
+        if (/doesn't have access/i.test(e.message)) setRestricted(true);
+        else setError(e.message);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -151,6 +156,7 @@ export default function Dashboard() {
   return (
     <div className="im-dashboard">
 
+      {!restricted && (<>
       {/* Stat cards */}
       <div className="im-stats-grid">
         <StatCard
@@ -181,6 +187,7 @@ export default function Dashboard() {
           sub={summary?.overdue_count ? 'action needed' : null}
         />
       </div>
+      </>)}
 
       {/* Low stock + Recent orders */}
       <div className="im-dash-grid">
@@ -267,6 +274,7 @@ export default function Dashboard() {
 
       </div>
 
+      {!restricted && (<>
       {/* Financial summary */}
       <div className="im-panel">
         <div className="im-panel-header">
@@ -313,6 +321,7 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+      </>)}
 
     </div>
   );
