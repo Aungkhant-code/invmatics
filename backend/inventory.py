@@ -6,6 +6,8 @@ All stock changes go through record_stock_movement() in Postgres
 ensuring atomicity and a complete audit trail.
 """
 
+import re
+from functools import lru_cache
 from uuid import UUID
 from datetime import date
 from typing import Optional
@@ -16,6 +18,27 @@ from auth import require_auth, get_client
 from models import StockAdjustment
 
 router = APIRouter()
+
+
+@lru_cache(maxsize=512)
+def _db_user_id(clerk_user_id: str) -> Optional[str]:
+    """users.id for a Clerk user (stamped on stock movements for the audit trail)."""
+    try:
+        res = (db_admin.table("users").select("id")
+               .eq("clerk_user_id", clerk_user_id).limit(1).execute())
+        return res.data[0]["id"] if res.data else None
+    except Exception:
+        return None
+
+
+def _clean_search(text: str) -> str:
+    """Strip characters that would break a PostgREST or_() filter (commas, parens, wildcards)."""
+    return re.sub(r"[,()%*\\]", " ", text).strip()
+
+
+def _product_in_org(client, product_id: str) -> bool:
+    res = client.table("products").select("id").eq("id", product_id).limit(1).execute()
+    return bool(res.data)
 
 
 # ================================================================
@@ -47,11 +70,12 @@ async def list_stock_levels(
         .order("name")
     )
 
-    if search:
+    term = _clean_search(search) if search else ""
+    if term:
         query = query.or_(
-            f"name.ilike.%{search}%,"
-            f"sku.ilike.%{search}%,"
-            f"barcode.ilike.%{search}%"
+            f"name.ilike.%{term}%,"
+            f"sku.ilike.%{term}%,"
+            f"barcode.ilike.%{term}%"
         )
 
     if category_id:
@@ -197,6 +221,7 @@ async def get_movement(
 async def record_adjustment(
     body: StockAdjustment,
     user: dict = Depends(require_auth),
+    client       = Depends(get_client),
 ):
     """
     Record a manual stock adjustment.
@@ -215,6 +240,10 @@ async def record_adjustment(
             detail=f"Invalid movement type. Allowed: {', '.join(allowed_manual_types)}"
         )
 
+    # db_admin bypasses tenant scoping, so confirm the product is this org's first.
+    if not _product_in_org(client, str(body.product_id)):
+        raise HTTPException(status_code=404, detail="Product not found")
+
     if body.movement_type in ("damage", "theft", "write_off"):
         qty = -abs(body.qty_change)
     elif body.movement_type == "return":
@@ -226,7 +255,7 @@ async def record_adjustment(
         result = db_admin.rpc("record_stock_movement", {
             "p_org_id":     org_id,
             "p_product_id": str(body.product_id),
-            "p_user_id":    None,
+            "p_user_id":    _db_user_id(user["clerk_user_id"]),
             "p_type":       body.movement_type,
             "p_qty_change": qty,
             "p_ref_type":   body.ref_type,
@@ -282,24 +311,23 @@ async def record_stocktake(
         if product_id is None or counted_qty is None:
             continue
 
-        current = (
+        found = (
             client.table("stock_levels")
             .select("qty_on_hand, products(name, sku)")
             .eq("product_id", product_id)
-            .single()
+            .limit(1)
             .execute()
-        )
-
-        if not current.data:
+        ).data
+        if not found:
             continue
-
-        current_qty = current.data["qty_on_hand"]
+        row = found[0]
+        current_qty = row["qty_on_hand"]
         diff = counted_qty - current_qty
 
         if diff == 0:
             no_change.append({
                 "product_id": product_id,
-                "name":       current.data["products"]["name"],
+                "name":       row["products"]["name"],
                 "qty":        current_qty,
             })
             continue
@@ -308,7 +336,7 @@ async def record_stocktake(
             db_admin.rpc("record_stock_movement", {
                 "p_org_id":     org_id,
                 "p_product_id": product_id,
-                "p_user_id":    None,
+                "p_user_id":    _db_user_id(user["clerk_user_id"]),
                 "p_type":       "adjustment",
                 "p_qty_change": diff,
                 "p_ref_type":   "stocktake",
@@ -318,7 +346,7 @@ async def record_stocktake(
 
             changes.append({
                 "product_id": product_id,
-                "name":       current.data["products"]["name"],
+                "name":       row["products"]["name"],
                 "before":     current_qty,
                 "counted":    counted_qty,
                 "adjustment": diff,

@@ -4,7 +4,7 @@
  * Real data from /api/inventory/stock and /api/inventory/movements
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
 
 const MOVEMENT_TYPES = ['adjustment', 'damage', 'theft', 'return', 'write_off'];
@@ -28,42 +28,49 @@ export default function Inventory() {
   const api = useApi();
 
   const [view,       setView]       = useState('stock');   // 'stock' | 'movements'
-  const [stock,      setStock]      = useState([]);
-  const [movements,  setMovements]  = useState([]);
+  const [stock,      setStock]      = useState(null);   // null = not loaded yet
+  const [movements,  setMovements]  = useState(null);
   const [search,     setSearch]     = useState('');
-  const [loading,    setLoading]    = useState(true);
+  const [reloadKey,  setReloadKey]  = useState(0);
   const [error,      setError]      = useState(null);
   const [showAdj,    setShowAdj]    = useState(false);
   const [products,   setProducts]   = useState([]);
   const [adjForm,    setAdjForm]    = useState({ product_id: '', movement_type: 'adjustment', qty_change: '', notes: '' });
   const [saving,     setSaving]     = useState(false);
+  const [debounced,  setDebounced]  = useState('');
 
-  const loadStock = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.get(`/inventory/stock${search ? `?search=${encodeURIComponent(search)}` : ''}`);
-      setStock(data.products || []);
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
-  }, [api, search]);
-
-  const loadMovements = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.get('/inventory/movements?limit=50');
-      setMovements(data.movements || []);
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
-  }, [api]);
-
+  // Wait for typing to pause before hitting the API
   useEffect(() => {
-    if (view === 'stock') loadStock();
-    else loadMovements();
-  }, [view, loadStock, loadMovements]);
+    const t = setTimeout(() => setDebounced(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Load the active view. Old rows stay visible while a refresh is in flight.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (view === 'stock') {
+          const data = await api.get(`/inventory/stock${debounced ? `?search=${encodeURIComponent(debounced)}` : ''}`);
+          if (!cancelled) setStock(data.products || []);
+        } else {
+          const data = await api.get('/inventory/movements?limit=50');
+          if (!cancelled) setMovements(data.movements || []);
+        }
+        if (!cancelled) setError(null);
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+        // leave the skeleton state so a failed first load doesn't show "No products"
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [api, view, debounced, reloadKey]);
 
   const openAdj = async () => {
-    const data = await api.get('/products');
-    setProducts(data.products || []);
+    try {
+      const data = await api.get('/products');
+      setProducts(data.products || []);
+    } catch (e) { setError(e.message); return; }
     setAdjForm({ product_id: '', movement_type: 'adjustment', qty_change: '', notes: '' });
     setShowAdj(true);
   };
@@ -78,7 +85,7 @@ export default function Inventory() {
         notes:         adjForm.notes || null,
       });
       setShowAdj(false);
-      loadStock();
+      setReloadKey(k => k + 1);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };
@@ -132,7 +139,7 @@ export default function Inventory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
+                  {stock === null ? (
                     Array(5).fill(0).map((_, i) => (
                       <tr key={i}>{Array(9).fill(0).map((_, j) => (
                         <td key={j}><div className="im-skeleton" style={{ height: 13, width: '75%' }} /></td>
@@ -183,7 +190,7 @@ export default function Inventory() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {movements === null ? (
                   Array(8).fill(0).map((_, i) => (
                     <tr key={i}>{Array(8).fill(0).map((_, j) => (
                       <td key={j}><div className="im-skeleton" style={{ height: 13, width: '80%' }} /></td>
