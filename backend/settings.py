@@ -6,6 +6,7 @@ Everyone in the org can read settings; only admins can change them.
 These values are what the PDFs print (company details, bank account, PromptPay).
 """
 
+import base64
 import re
 from typing import Optional
 
@@ -94,6 +95,33 @@ class NotificationsUpdate(BaseModel):
     notify_payment_received: Optional[bool] = None
 
 
+class LogoUpdate(BaseModel):
+    logo: Optional[str] = None        # a data: URL, or null to remove
+
+
+MAX_LOGO_BYTES = 300_000
+_LOGO_MAGIC = {                      # claimed type -> the bytes a real file of that type starts with
+    "png":  b"\x89PNG\r\n\x1a\n",
+    "jpeg": b"\xff\xd8\xff",
+    "webp": b"RIFF",
+}
+
+
+def _check_logo(data_url: str) -> None:
+    m = re.match(r"^data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$", data_url or "")
+    if not m:
+        raise HTTPException(status_code=400, detail="Logo must be a PNG, JPEG or WebP image")
+    kind, payload = m.groups()
+    try:
+        raw = base64.b64decode(payload, validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="That image couldn't be read")
+    if len(raw) > MAX_LOGO_BYTES:
+        raise HTTPException(status_code=413, detail="Logo is too large — keep it under 300 KB")
+    if not raw.startswith(_LOGO_MAGIC[kind]):
+        raise HTTPException(status_code=400, detail="That file isn't a valid image")
+
+
 # ── Helpers ────────────────────────────────────────────────────────
 
 def _first(builder):
@@ -122,9 +150,19 @@ async def get_settings(
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found")
 
+    # logo_url needs `alter table organisations add column logo_url text`; until that's run,
+    # the rest of Settings must keep working.
+    logo, logo_ok = None, True
+    try:
+        r = _first(client.table("organisations").select("logo_url").eq("id", user["org_id"]))
+        logo = (r or {}).get("logo_url")
+    except Exception:
+        logo_ok = False
+
     row = _settings_row(client)
     return {
-        "organisation":  org,
+        "organisation":  {**org, "logo_url": logo},
+        "logo_supported": logo_ok,
         "invoicing":     {k: row.get(k, d) if row.get(k) is not None else d
                           for k, d in INVOICING_DEFAULTS.items()},
         "notifications": {k: row.get(k) if row.get(k) is not None else d
@@ -179,3 +217,26 @@ async def update_notifications(
         raise HTTPException(status_code=400, detail="No fields to update")
     row = _save_org_settings(client, updates)
     return {k: row.get(k) if row.get(k) is not None else d for k, d in NOTIFY_DEFAULTS.items()}
+
+
+@router.put("/settings/logo")
+async def update_logo(
+    body:   LogoUpdate,
+    user:   dict = Depends(require_role("admin")),
+    client       = Depends(get_client),
+):
+    """Set (data: URL) or remove (null) the company logo printed on documents."""
+    if body.logo is not None:
+        _check_logo(body.logo)
+    try:
+        res = client.table("organisations").update({"logo_url": body.logo}).eq("id", user["org_id"]).execute()
+    except Exception as e:
+        if "logo_url" in str(e):
+            raise HTTPException(
+                status_code=503,
+                detail="Logos need a one-time database update (add the logo_url column to organisations).",
+            )
+        raise
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+    return {"logo_url": res.data[0].get("logo_url")}

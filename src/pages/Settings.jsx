@@ -3,7 +3,7 @@
  * Real data from /api/settings. Everyone can view; only admins can save.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApi } from '../lib/api';
 
 const SECTIONS = [
@@ -42,6 +42,44 @@ function withCurrent(options, current) {
   return current && !options.includes(current) ? [current, ...options] : options;
 }
 
+const MAX_SIDE = 400;          // px — plenty for a 40 mm-tall logo on A4
+const MAX_CHARS = 380_000;    // keeps the stored image under the 300 KB API limit
+
+/** Read an image file, shrink it, and return a PNG (or JPEG if PNG is too big) data URL. */
+function fileToLogo(file) {
+  return new Promise((resolve, reject) => {
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+      reject(new Error('Please choose a PNG, JPEG or WebP image.'));
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        let out = canvas.toDataURL('image/png');            // keeps transparency
+        if (out.length > MAX_CHARS) {
+          ctx.globalCompositeOperation = 'destination-over';
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);  // JPEG has no transparency
+          out = canvas.toDataURL('image/jpeg', 0.88);
+        }
+        if (out.length <= MAX_CHARS) { resolve(out); return; }
+        scale *= 0.7;
+      }
+      reject(new Error('That image is too detailed to use as a logo. Try a simpler or smaller one.'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That file couldn't be read as an image.")); };
+    img.src = url;
+  });
+}
+
 export default function Settings() {
   const api = useApi();
 
@@ -51,6 +89,8 @@ export default function Settings() {
   const [error,   setError]   = useState(null);
   const [notice,  setNotice]  = useState(null);
   const [saving,  setSaving]  = useState(false);
+  const [logoBusy, setLogoBusy] = useState(false);
+  const fileRef = useRef(null);
 
   const fromServer = (d) => ({
     company:       pick(d.organisation, ORG_COMPANY),
@@ -112,6 +152,24 @@ export default function Settings() {
     finally { setSaving(false); }
   };
 
+  const saveLogo = async (logo) => {
+    setLogoBusy(true); setError(null); setNotice(null);
+    try {
+      const r = await api.put('/settings/logo', { logo });
+      setData(d => ({ ...d, organisation: { ...d.organisation, logo_url: r.logo_url } }));
+      setNotice(logo ? 'Logo updated' : 'Logo removed');
+    } catch (e) { setError(e.message); }
+    finally { setLogoBusy(false); }
+  };
+
+  const onPickLogo = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';                 // allow choosing the same file again
+    if (!file) return;
+    try { await saveLogo(await fileToLogo(file)); }
+    catch (err) { setError(err.message); }
+  };
+
   const reset = () => { setNotice(null); setDraft(d => ({ ...d, [section]: data.form[section] })); };
 
   const text = (key, label, props = {}, span2 = false) => (
@@ -134,7 +192,7 @@ export default function Settings() {
   );
 
   return (
-    <div className="im-page">
+    <div className="im-page" style={{ maxWidth: 800, margin: '0 auto' }}>
       <div className="im-page-header">
         <div>
           <h1 className="im-page-title">Settings</h1>
@@ -160,10 +218,46 @@ export default function Settings() {
           ))}
         </div>
       ) : (
-        <div className="im-panel" style={{ padding: 24, maxWidth: 760 }}>
+        <div className="im-panel" style={{ padding: 24 }}>
           {!canEdit && (
             <div style={{ marginBottom: 16, fontSize: 13, color: 'var(--text-muted)' }}>
               Only admins can change settings. You're viewing them read-only.
+            </div>
+          )}
+
+          {section === 'company' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24, paddingBottom: 20,
+              borderBottom: '1px solid var(--border-light, var(--border))' }}>
+              <div style={{ width: 96, height: 96, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                {data.organisation.logo_url
+                  ? <img src={data.organisation.logo_url} alt="Company logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                  : <span style={{ fontSize: 34, fontWeight: 800, color: 'var(--text-muted)' }}>
+                      {(draft.company.name || '?').trim().charAt(0).toUpperCase()}
+                    </span>}
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>Company logo</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+                  Shown at the top of your invoices, quotations and delivery documents. PNG, JPEG or WebP.
+                </div>
+                {data.logo_supported === false ? (
+                  <div style={{ fontSize: 12, color: 'var(--orange, #D97706)' }}>
+                    Logo upload needs a one-time database update (add a logo_url column).
+                  </div>
+                ) : canEdit && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp"
+                      style={{ display: 'none' }} onChange={onPickLogo} />
+                    <button className="im-btn-ghost" disabled={logoBusy} onClick={() => fileRef.current?.click()}>
+                      {logoBusy ? 'Uploading…' : data.organisation.logo_url ? 'Change logo' : 'Upload logo'}
+                    </button>
+                    {data.organisation.logo_url && (
+                      <button className="im-btn-ghost red" disabled={logoBusy} onClick={() => saveLogo(null)}>Remove</button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

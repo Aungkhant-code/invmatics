@@ -44,6 +44,7 @@ def _build_org_context(org: dict) -> dict:
         "tax_id":            org.get("tax_id"),
         "phone":             org.get("phone"),
         "email":             org.get("email"),
+        "logo":              org.get("logo_url"),
         "bank_name":         org.get("bank_name"),
         "bank_account_no":   org.get("bank_account_no"),
         "bank_account_name": org.get("bank_account_name"),

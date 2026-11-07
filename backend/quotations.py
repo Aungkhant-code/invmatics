@@ -260,6 +260,7 @@ async def get_quotation_pdf(
             "tax_id":  org.get("tax_id"),
             "phone":   org.get("phone"),
             "email":   org.get("email"),
+            "logo":    org.get("logo_url"),
         },
         "customer": {
             "name":         customer.get("name", ""),

@@ -13,9 +13,13 @@
   <div class="doc-header">
     <div>
       <div class="doc-logo-row">
+        {% if org.logo %}
+        <img class="doc-logo-img" src="{{ org.logo }}" alt="">
+        {% else %}
         <div class="doc-logo-mark">
           <span></span><span></span><span></span>
         </div>
+        {% endif %}
         <span class="doc-biz-name">{{ org.name }}</span>
       </div>
       <div class="doc-biz-details">
