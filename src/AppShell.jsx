@@ -69,6 +69,8 @@ export default function AppShell() {
   const { userId } = useAuth();
   // Last known role for this user, so a refresh shows the full menu immediately
   const [role, setRole] = useState(() => readCache(userId, 'role'));
+  const [roleError, setRoleError] = useState(null);
+  const [roleTry, setRoleTry] = useState(0);
 
   // Who am I? Decides which pages the sidebar offers.
   useEffect(() => {
@@ -78,11 +80,14 @@ export default function AppShell() {
         const me = await api.get('/auth/me');
         if (cancelled) return;
         setRole(me.role);
+        setRoleError(null);
         writeCache(userId, 'role', me.role);
-      } catch { /* leave role unset: sidebar shows nothing extra, pages still enforce on the API */ }
+      } catch (e) {
+        if (!cancelled) setRoleError(e.message || 'Request failed');
+      }
     })();
     return () => { cancelled = true; };
-  }, [api, userId]);
+  }, [api, userId, roleTry]);
 
   // Only pages this role may open (the API enforces it too)
   const PageComponent = (role === null || canOpen(role, page)) ? (PAGES[page] || Placeholder) : NoAccess;
@@ -98,6 +103,12 @@ export default function AppShell() {
       <div className="im-main">
         <Topbar page={page} />
         <main className="im-content">
+          {roleError && role === null && (
+            <div className="im-error" style={{ marginBottom: 12 }}>
+              Couldn't load your permissions, so the menu is limited: {roleError}{' '}
+              <button className="im-btn-ghost" onClick={() => { setRoleError(null); setRoleTry(n => n + 1); }}>Retry</button>
+            </div>
+          )}
           <PageComponent />
         </main>
       </div>
