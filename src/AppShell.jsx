@@ -18,6 +18,7 @@ import Staff     from './pages/Staff';
 import StockMovements from './pages/StockMovements';
 import LowStock  from './pages/LowStock';
 import PurchaseOrders from './pages/PurchaseOrders';
+import Settings from './pages/Settings';
 
 function Placeholder({ page }) {
   return (
@@ -47,6 +48,7 @@ const PAGES = {
   sales:     Orders,
   purchase:  PurchaseOrders,
   reports:   Analytics,
+  settings:  Settings,
 };
 
 export default function AppShell() {
