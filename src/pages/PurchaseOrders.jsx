@@ -273,24 +273,34 @@ export default function PurchaseOrders() {
               </div>
 
               <div className="im-detail-section-title">Items</div>
-              {form.lines.map((l, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 110px 28px', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-                  <select value={l.product_id} onChange={e => pickProduct(i, e.target.value)}>
-                    <option value="">Select product…</option>
-                    {products.map(x => <option key={x.id} value={x.id}>{x.name} ({x.sku})</option>)}
-                  </select>
-                  <input type="number" min="1" value={l.qty} title="Quantity"
-                    onChange={e => setLine(i, { qty: e.target.value })} />
-                  <input type="number" min="0" step="0.01" value={l.unit_price} title="Unit cost"
-                    onChange={e => setLine(i, { unit_price: e.target.value })} />
-                  <button className="im-modal-close" title="Remove line"
-                    onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, j) => j !== i) }))}>✕</button>
+              <div className="im-lines">
+                <div className="im-lines-head">
+                  <span>Product</span><span className="num">Qty</span>
+                  <span className="num">Unit cost</span><span className="num">Total</span><span />
                 </div>
-              ))}
-              <button className="im-btn-ghost" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>
-                + Add line
-              </button>
-              <div style={{ textAlign: 'right', fontSize: 18, fontWeight: 800, marginTop: 12 }}>Total: {fmt(total)}</div>
+                {form.lines.map((l, i) => (
+                  <div key={i} className="im-line">
+                    <select value={l.product_id} onChange={e => pickProduct(i, e.target.value)}>
+                      <option value="">Select product…</option>
+                      {products.map(x => <option key={x.id} value={x.id}>{x.name} ({x.sku})</option>)}
+                    </select>
+                    <input type="number" min="1" value={l.qty} aria-label="Quantity"
+                      onChange={e => setLine(i, { qty: e.target.value })} />
+                    <input type="number" min="0" step="0.01" value={l.unit_price} aria-label="Unit cost"
+                      placeholder="0.00" onChange={e => setLine(i, { unit_price: e.target.value })} />
+                    <div className="im-line-total">{fmt((Number(l.qty) || 0) * (Number(l.unit_price) || 0))}</div>
+                    <button className="im-line-remove" title="Remove line" aria-label="Remove line"
+                      disabled={form.lines.length === 1}
+                      onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, j) => j !== i) }))}>✕</button>
+                  </div>
+                ))}
+                <div className="im-lines-foot">
+                  <button className="im-btn-ghost" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>
+                    + Add line
+                  </button>
+                  <div className="im-lines-total"><span>Total</span>{fmt(total)}</div>
+                </div>
+              </div>
             </div>
             <div className="im-modal-footer">
               <button className="im-btn-ghost" onClick={() => setShowNew(false)}>Cancel</button>

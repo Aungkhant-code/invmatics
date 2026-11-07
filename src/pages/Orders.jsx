@@ -295,39 +295,47 @@ export default function Orders() {
               </div>
 
               <div className="im-detail-section-title">Items</div>
-              {form.lines.map((l, i) => {
-                const p = products.find(x => x.id === l.product_id);
-                const avail = p ? (p.stock_levels?.qty_on_hand ?? 0) - (p.stock_levels?.qty_reserved ?? 0) : null;
-                return (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 110px 28px', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-                    <select value={l.product_id} onChange={e => pickProduct(i, e.target.value)}>
-                      <option value="">Select product…</option>
-                      {products.map(x => <option key={x.id} value={x.id}>{x.name} ({x.sku})</option>)}
-                    </select>
-                    <input type="number" min="1" value={l.qty} title="Quantity"
-                      onChange={e => setLine(i, { qty: e.target.value })} />
-                    <input type="number" min="0" step="0.01" value={l.unit_price} title="Unit price"
-                      onChange={e => setLine(i, { unit_price: e.target.value })} />
-                    <button className="im-modal-close" title="Remove line"
-                      onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, j) => j !== i) }))}>✕</button>
-                    {avail !== null && Number(l.qty) > avail && (
-                      <div style={{ gridColumn: '1 / -1', fontSize: 12, color: 'var(--orange, #D97706)' }}>
-                        Only {avail} available (on hand minus reserved) — dispatch will be blocked until stock arrives.
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              <button className="im-btn-ghost" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>
-                + Add line
-              </button>
+              <div className="im-lines">
+                <div className="im-lines-head">
+                  <span>Product</span><span className="num">Qty</span>
+                  <span className="num">Unit price</span><span className="num">Total</span><span />
+                </div>
+                {form.lines.map((l, i) => {
+                  const p = products.find(x => x.id === l.product_id);
+                  const avail = p ? (p.stock_levels?.qty_on_hand ?? 0) - (p.stock_levels?.qty_reserved ?? 0) : null;
+                  return (
+                    <div key={i} className="im-line">
+                      <select value={l.product_id} onChange={e => pickProduct(i, e.target.value)}>
+                        <option value="">Select product…</option>
+                        {products.map(x => <option key={x.id} value={x.id}>{x.name} ({x.sku})</option>)}
+                      </select>
+                      <input type="number" min="1" value={l.qty} aria-label="Quantity"
+                        onChange={e => setLine(i, { qty: e.target.value })} />
+                      <input type="number" min="0" step="0.01" value={l.unit_price} aria-label="Unit price"
+                        placeholder="0.00" onChange={e => setLine(i, { unit_price: e.target.value })} />
+                      <div className="im-line-total">{fmt((Number(l.qty) || 0) * (Number(l.unit_price) || 0))}</div>
+                      <button className="im-line-remove" title="Remove line" aria-label="Remove line"
+                        disabled={form.lines.length === 1}
+                        onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, j) => j !== i) }))}>✕</button>
+                      {avail !== null && Number(l.qty) > avail && (
+                        <div className="im-line-hint">
+                          Only {avail} available (on hand minus reserved) — dispatch is blocked until stock arrives.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                <div className="im-lines-foot">
+                  <button className="im-btn-ghost" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>
+                    + Add line
+                  </button>
+                  <div className="im-lines-total"><span>Total</span>{fmt(orderTotal)}</div>
+                </div>
+              </div>
 
               <div className="im-field span-2" style={{ marginTop: 12 }}>
                 <label>Notes (shown on documents)</label>
                 <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-              </div>
-              <div style={{ textAlign: 'right', fontSize: 18, fontWeight: 800, marginTop: 12 }}>
-                Total: {fmt(orderTotal)}
               </div>
             </div>
             <div className="im-modal-footer">
