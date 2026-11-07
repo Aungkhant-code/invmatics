@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@clerk/react';
 import { useApi } from '../lib/api';
+import { readCache, writeCache } from '../lib/cache';
 import { Icon, ICONS } from '../shell/Icon';
 
 function fmt(n, currency = '$') {
@@ -49,47 +51,74 @@ const SEVERITY_CLS = {
 
 export default function Dashboard() {
   const api = useApi();
+  const { userId } = useAuth();
 
   const [period,    setPeriod]    = useState('this_month');
-  const [summary,   setSummary]   = useState(null);
-  const [financial, setFinancial] = useState(null);
-  const [lowStock,  setLowStock]  = useState([]);
-  const [orders,    setOrders]    = useState([]);
-  const [loading,   setLoading]   = useState(true);
+  // Hydrate from cache so a refresh shows the last data instantly, then revalidate.
+  const [summary,   setSummary]   = useState(() => readCache(userId, 'dash:summary:this_month'));
+  const [financial, setFinancial] = useState(() => readCache(userId, 'dash:fin:this_month'));
+  const [lowStock,  setLowStock]  = useState(() => readCache(userId, 'dash:low') || []);
+  const [orders,    setOrders]    = useState(() => readCache(userId, 'dash:orders') || []);
+  const [loading,   setLoading]   = useState(() => !readCache(userId, 'dash:summary:this_month'));
+  const [sideLoading, setSideLoading] = useState(() => !readCache(userId, 'dash:low'));
   const [error,     setError]     = useState(null);
 
+  // Period-dependent data
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setError(null);
+    (async () => {
       try {
-        const [sum, fin, ls, ord] = await Promise.all([
+        const [sum, fin] = await Promise.all([
           api.get(`/analytics/summary?period=${period}`),
           api.get(`/analytics/financial-summary?period=${period}`),
-          api.get('/inventory/low-stock'),
-          api.get('/orders/sales?limit=5'),
         ]);
         if (cancelled) return;
         setSummary(sum);
         setFinancial(fin);
-        setLowStock([
-          ...(ls.critical || []),
-          ...(ls.low      || []),
-          ...(ls.warning  || []),
-        ].slice(0, 4));
-        setOrders((ord.orders || []).slice(0, 5));
+        writeCache(userId, `dash:summary:${period}`, sum);
+        writeCache(userId, `dash:fin:${period}`, fin);
+        setError(null);
       } catch (e) {
         if (!cancelled) setError(e.message);
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }
-
-    load();
+    })();
     return () => { cancelled = true; };
-  }, [period, api]);
+  }, [period, api, userId]);
+
+  // Period-independent data: fetched once
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [ls, ord] = await Promise.all([
+          api.get('/inventory/low-stock'),
+          api.get('/orders/sales?limit=5'),
+        ]);
+        if (cancelled) return;
+        const low = [...(ls.critical || []), ...(ls.low || []), ...(ls.warning || [])].slice(0, 4);
+        const recent = (ord.orders || []).slice(0, 5);
+        setLowStock(low);
+        setOrders(recent);
+        writeCache(userId, 'dash:low', low);
+        writeCache(userId, 'dash:orders', recent);
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      } finally {
+        if (!cancelled) setSideLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [api, userId]);
+
+  const changePeriod = (key) => {
+    const s = readCache(userId, `dash:summary:${key}`);
+    const f = readCache(userId, `dash:fin:${key}`);
+    setSummary(s); setFinancial(f);
+    setLoading(!s);
+    setPeriod(key);
+  };
 
   const PERIOD_LABELS = {
     this_month:    'This month',
@@ -162,7 +191,7 @@ export default function Dashboard() {
             <button className="im-panel-link">View all</button>
           </div>
           <div className="im-panel-body">
-            {loading ? (
+            {sideLoading ? (
               [1,2,3,4].map(i => (
                 <div key={i} className="im-low-row">
                   <div className="im-low-info">
@@ -210,7 +239,7 @@ export default function Dashboard() {
               <span>Total</span>
               <span>Status</span>
             </div>
-            {loading ? (
+            {sideLoading ? (
               [1,2,3,4,5].map(i => (
                 <div key={i} className="im-table-row">
                   <div className="im-skeleton" style={{ height: 13, width: '80%' }} />
@@ -247,7 +276,7 @@ export default function Dashboard() {
               <button
                 key={key}
                 className={`im-tab ${period === key ? 'active' : ''}`}
-                onClick={() => setPeriod(key)}
+                onClick={() => changePeriod(key)}
               >
                 {label}
               </button>

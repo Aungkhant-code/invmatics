@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@clerk/react';
+import { clearCache } from './lib/cache';
 import './AppShell.css';
 
 import Sidebar from './shell/Sidebar';
@@ -49,7 +50,7 @@ export default function AppShell() {
       <Sidebar
         active={page}
         onNavigate={setPage}
-        onSignOut={() => signOut({ redirectUrl: '/' })}
+        onSignOut={() => { clearCache(); signOut({ redirectUrl: '/' }); }}
       />
       <div className="im-main">
         <Topbar page={page} />
