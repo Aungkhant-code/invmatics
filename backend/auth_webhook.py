@@ -349,7 +349,7 @@ async def clerk_webhook(
             raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             print(f"Webhook handler error for {event_type}: {e}")
-            return {"status": "error", "detail": str(e)}
+            raise HTTPException(status_code=500, detail=str(e))
 
     return {"status": "ignored", "event": event_type}
 
