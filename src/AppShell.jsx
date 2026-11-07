@@ -17,6 +17,7 @@ import Analytics from './pages/Analytics';
 import Staff     from './pages/Staff';
 import StockMovements from './pages/StockMovements';
 import LowStock  from './pages/LowStock';
+import PurchaseOrders from './pages/PurchaseOrders';
 
 function Placeholder({ page }) {
   return (
@@ -44,6 +45,7 @@ const PAGES = {
   movements: StockMovements,
   lowstock:  LowStock,
   sales:     Orders,
+  purchase:  PurchaseOrders,
   reports:   Analytics,
 };
 

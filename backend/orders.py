@@ -58,18 +58,22 @@ def _next_number(org_id: str, seq_type: str) -> str:
     return result.data
 
 
+def _first(builder):
+    """Run a query and return its first row (or None). Unlike .single(), never raises on 0 rows."""
+    rows = builder.limit(1).execute().data
+    return rows[0] if rows else None
+
+
 def _get_product(client, product_id: str) -> dict:
     """Fetch a product or raise 404."""
-    result = (
+    product = _first(
         client.table("products")
         .select("id, name, selling_price, cost_price, tax_rate")
         .eq("id", product_id)
-        .single()
-        .execute()
     )
-    if not result.data:
+    if not product:
         raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
-    return result.data
+    return product
 
 
 # ================================================================
@@ -114,7 +118,7 @@ async def get_sales_order(
     user:   dict = Depends(require_auth),
     client       = Depends(get_client),
 ):
-    result = (
+    order = _first(
         client.table("sales_orders")
         .select(
             "*, "
@@ -122,14 +126,10 @@ async def get_sales_order(
             "sales_order_items(*, products(name, sku))"
         )
         .eq("id", str(order_id))
-        .single()
-        .execute()
     )
-
-    if not result.data:
+    if not order:
         raise HTTPException(status_code=404, detail="Sales order not found")
-
-    return result.data
+    return order
 
 
 @router.post("/orders/sales", status_code=201)
@@ -141,15 +141,18 @@ async def create_sales_order(
     org_id = user["org_id"]
 
     # Validate customer exists
-    cust = (
+    cust = _first(
         client.table("customers")
         .select("id, name, payment_terms")
         .eq("id", str(body.customer_id))
-        .single()
-        .execute()
     )
-    if not cust.data:
+    if not cust:
         raise HTTPException(status_code=404, detail="Customer not found")
+
+    if not body.items:
+        raise HTTPException(status_code=400, detail="Add at least one line item")
+    if any(i.qty <= 0 for i in body.items):
+        raise HTTPException(status_code=400, detail="Quantities must be greater than zero")
 
     order_number = _next_number(org_id, "SO")
 
@@ -261,33 +264,42 @@ async def dispatch_sales_order(
     """
     org_id = user["org_id"]
 
-    order = (
+    order = _first(
         client.table("sales_orders")
         .select("*, sales_order_items(*)")
         .eq("id", str(order_id))
-        .single()
-        .execute()
     )
-
-    if not order.data:
+    if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.data["status"] not in ("confirmed", "draft"):
+    if order["status"] not in ("confirmed", "draft"):
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot dispatch order with status '{order.data['status']}'"
+            detail=f"Cannot dispatch order with status '{order['status']}'"
         )
 
-    for item in order.data["sales_order_items"]:
+    # Check ALL lines have enough stock before moving any, so a shortfall can't leave
+    # the order half-dispatched.
+    short = []
+    for item in order["sales_order_items"]:
+        sl = _first(client.table("stock_levels").select("qty_on_hand")
+                    .eq("product_id", item["product_id"]))
+        have = sl["qty_on_hand"] if sl else 0
+        if have < item["qty_ordered"]:
+            short.append(f"{item['description']} (need {item['qty_ordered']}, have {have})")
+    if short:
+        raise HTTPException(status_code=400, detail="Not enough stock: " + "; ".join(short))
+
+    for item in order["sales_order_items"]:
         db_admin.rpc("record_stock_movement", {
             "p_org_id":     org_id,
             "p_product_id": item["product_id"],
-            "p_user_id":    None,
+            "p_user_id":    db_user_id(user["clerk_user_id"]),
             "p_type":       "sale",
             "p_qty_change": -item["qty_ordered"],
             "p_ref_type":   "sales_order",
             "p_ref_id":     str(order_id),
-            "p_notes":      f"Dispatched on order {order.data['order_number']}",
+            "p_notes":      f"Dispatched on order {order['order_number']}",
         }).execute()
 
         current = (
@@ -341,7 +353,7 @@ async def list_purchase_orders(
         .select(
             "*, "
             "suppliers(name, contact_name, phone, lead_days), "
-            "purchase_order_items(id, product_id, qty_ordered, qty_received, unit_cost, line_total)"
+            "purchase_order_items(id, product_id, qty_ordered, qty_received, unit_cost, line_total, products(name, sku))"
         )
         .order("created_at", desc=True)
     )
@@ -361,7 +373,7 @@ async def get_purchase_order(
     user:   dict = Depends(require_auth),
     client       = Depends(get_client),
 ):
-    result = (
+    po = _first(
         client.table("purchase_orders")
         .select(
             "*, "
@@ -369,14 +381,10 @@ async def get_purchase_order(
             "purchase_order_items(*, products(name, sku))"
         )
         .eq("id", str(po_id))
-        .single()
-        .execute()
     )
-
-    if not result.data:
+    if not po:
         raise HTTPException(status_code=404, detail="Purchase order not found")
-
-    return result.data
+    return po
 
 
 @router.post("/orders/purchase", status_code=201)
@@ -396,6 +404,11 @@ async def create_purchase_order(
     )
     if not sup.data:
         raise HTTPException(status_code=404, detail="Supplier not found")
+
+    if not body.items:
+        raise HTTPException(status_code=400, detail="Add at least one line item")
+    if any(i.qty <= 0 for i in body.items):
+        raise HTTPException(status_code=400, detail="Quantities must be greater than zero")
 
     po_number = _next_number(org_id, "PO")
 
@@ -520,24 +533,21 @@ async def receive_purchase_order(
     org_id = user["org_id"]
     from datetime import datetime
 
-    po = (
+    po = _first(
         client.table("purchase_orders")
         .select("*, purchase_order_items(*)")
         .eq("id", str(po_id))
-        .single()
-        .execute()
     )
-
-    if not po.data:
+    if not po:
         raise HTTPException(status_code=404, detail="Purchase order not found")
 
-    if po.data["status"] == "received":
+    if po["status"] == "received":
         raise HTTPException(status_code=400, detail="Purchase order already fully received")
 
-    po_items = {item["id"]: item for item in po.data["purchase_order_items"]}
+    po_items = {item["id"]: item for item in po["purchase_order_items"]}
 
-    total_ordered         = sum(i["qty_ordered"]  for i in po.data["purchase_order_items"])
-    total_received_before = sum(i["qty_received"] for i in po.data["purchase_order_items"])
+    total_ordered         = sum(i["qty_ordered"]  for i in po["purchase_order_items"])
+    total_received_before = sum(i["qty_received"] for i in po["purchase_order_items"])
     total_received_now    = 0
 
     for receive_item in body.items:
@@ -562,12 +572,12 @@ async def receive_purchase_order(
         db_admin.rpc("record_stock_movement", {
             "p_org_id":     org_id,
             "p_product_id": po_item["product_id"],
-            "p_user_id":    None,
+            "p_user_id":    db_user_id(user["clerk_user_id"]),
             "p_type":       "receive",
             "p_qty_change": qty,
             "p_ref_type":   "purchase_order",
             "p_ref_id":     str(po_id),
-            "p_notes":      body.notes or f"Received on {po.data['po_number']}",
+            "p_notes":      body.notes or f"Received on {po['po_number']}",
         }).execute()
 
         db_admin.table("purchase_order_items").update({
