@@ -62,6 +62,7 @@ export default function Dashboard() {
   const [loading,   setLoading]   = useState(() => !readCache(userId, 'dash:summary:this_month'));
   const [sideLoading, setSideLoading] = useState(() => !readCache(userId, 'dash:low'));
   const [error,     setError]     = useState(null);
+  const [fetchedPeriod, setFetchedPeriod] = useState(() => readCache(userId, 'dash:fin:this_month') ? 'this_month' : null);
 
   // Period-dependent data
   useEffect(() => {
@@ -75,6 +76,7 @@ export default function Dashboard() {
         if (cancelled) return;
         setSummary(sum);
         setFinancial(fin);
+        setFetchedPeriod(period);
         writeCache(userId, `dash:summary:${period}`, sum);
         writeCache(userId, `dash:fin:${period}`, fin);
         setError(null);
@@ -115,8 +117,8 @@ export default function Dashboard() {
   const changePeriod = (key) => {
     const s = readCache(userId, `dash:summary:${key}`);
     const f = readCache(userId, `dash:fin:${key}`);
-    setSummary(s); setFinancial(f);
-    setLoading(!s);
+    // Keep showing the current numbers until the new ones arrive (no skeleton flash).
+    if (s && f) { setSummary(s); setFinancial(f); setFetchedPeriod(key); }
     setPeriod(key);
   };
 
@@ -295,7 +297,7 @@ export default function Dashboard() {
             ))}
           </div>
         ) : (
-          <div className="im-fin-grid">
+          <div className="im-fin-grid" style={{ opacity: fetchedPeriod === period ? 1 : 0.5, transition: 'opacity .15s' }}>
             {FINANCIALS.map(item => (
               <div className="im-fin-item" key={item.label}>
                 <div className="im-fin-label">{item.label}</div>
