@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@clerk/react';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 /**
  * useApi() — authenticated fetch helper.
