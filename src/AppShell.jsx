@@ -15,6 +15,8 @@ import Suppliers from './pages/Suppliers';
 import Invoices  from './pages/Invoices';
 import Analytics from './pages/Analytics';
 import Staff     from './pages/Staff';
+import StockMovements from './pages/StockMovements';
+import LowStock  from './pages/LowStock';
 
 function Placeholder({ page }) {
   return (
@@ -37,6 +39,12 @@ const PAGES = {
   invoices:  Invoices,
   analytics: Analytics,
   staff:     Staff,
+  // sidebar keys (shell/nav.js)
+  products:  Catalog,
+  movements: StockMovements,
+  lowstock:  LowStock,
+  sales:     Orders,
+  reports:   Analytics,
 };
 
 export default function AppShell() {

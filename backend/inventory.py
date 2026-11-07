@@ -7,28 +7,16 @@ ensuring atomicity and a complete audit trail.
 """
 
 import re
-from functools import lru_cache
 from uuid import UUID
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
 from database import db_admin
-from auth import require_auth, get_client
+from auth import require_auth, get_client, db_user_id
 from models import StockAdjustment
 
 router = APIRouter()
-
-
-@lru_cache(maxsize=512)
-def _db_user_id(clerk_user_id: str) -> Optional[str]:
-    """users.id for a Clerk user (stamped on stock movements for the audit trail)."""
-    try:
-        res = (db_admin.table("users").select("id")
-               .eq("clerk_user_id", clerk_user_id).limit(1).execute())
-        return res.data[0]["id"] if res.data else None
-    except Exception:
-        return None
 
 
 def _clean_search(text: str) -> str:
@@ -255,7 +243,7 @@ async def record_adjustment(
         result = db_admin.rpc("record_stock_movement", {
             "p_org_id":     org_id,
             "p_product_id": str(body.product_id),
-            "p_user_id":    _db_user_id(user["clerk_user_id"]),
+            "p_user_id":    db_user_id(user["clerk_user_id"]),
             "p_type":       body.movement_type,
             "p_qty_change": qty,
             "p_ref_type":   body.ref_type,
@@ -336,7 +324,7 @@ async def record_stocktake(
             db_admin.rpc("record_stock_movement", {
                 "p_org_id":     org_id,
                 "p_product_id": product_id,
-                "p_user_id":    _db_user_id(user["clerk_user_id"]),
+                "p_user_id":    db_user_id(user["clerk_user_id"]),
                 "p_type":       "adjustment",
                 "p_qty_change": diff,
                 "p_ref_type":   "stocktake",
@@ -382,7 +370,7 @@ async def low_stock_summary(
     result = (
         client.table("products")
         .select(
-            "id, name, sku, reorder_point, reorder_qty, cost_price, "
+            "id, name, sku, supplier_id, reorder_point, reorder_qty, cost_price, "
             "stock_levels(qty_on_hand, qty_on_order), "
             "suppliers(name, lead_days)"
         )

@@ -15,7 +15,7 @@ import httpx
 from functools import lru_cache
 from fastapi import Header, HTTPException, Depends
 from config import CLERK_SECRET_KEY
-from provisioning import provision_user
+from provisioning import provision_user, _find_user
 from tenant_client import TenantClient
 
 
@@ -113,6 +113,16 @@ def _app_role(claims: dict):
     """
     role = claims.get("app_role") or claims.get("role")
     return role if role in VALID_ROLES else None
+
+
+@lru_cache(maxsize=512)
+def db_user_id(clerk_user_id: str):
+    """users.id (uuid) for a Clerk user — what created_by / user_id columns expect."""
+    try:
+        row = _find_user(clerk_user_id)
+        return row["id"] if row else None
+    except Exception:
+        return None
 
 
 def require_auth(authorization: str = Header(None)) -> dict:

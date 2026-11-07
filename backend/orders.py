@@ -23,7 +23,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
 from database import db_admin
-from auth import require_auth, get_client
+from auth import require_auth, get_client, db_user_id
 from models import (
     SalesOrderCreate, SalesOrderUpdate,
     PurchaseOrderCreate, PurchaseOrderUpdate,
@@ -179,7 +179,7 @@ async def create_sales_order(
     order_data = {
         "org_id":        org_id,
         "customer_id":   str(body.customer_id),
-        "created_by":    user["clerk_user_id"],
+        "created_by":    db_user_id(user["clerk_user_id"]),
         "order_number":  order_number,
         "status":        "confirmed",
         "payment_status":"unpaid",
@@ -391,7 +391,7 @@ async def create_purchase_order(
         client.table("suppliers")
         .select("id, name")
         .eq("id", str(body.supplier_id))
-        .single()
+        .limit(1)
         .execute()
     )
     if not sup.data:
@@ -415,7 +415,7 @@ async def create_purchase_order(
     po_data = {
         "org_id":            org_id,
         "supplier_id":       str(body.supplier_id),
-        "created_by":        user["clerk_user_id"],
+        "created_by":        db_user_id(user["clerk_user_id"]),
         "po_number":         po_number,
         "status":            "draft",
         "payment_status":    "unpaid",
