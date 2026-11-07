@@ -33,7 +33,7 @@ const ALERTS = [
 ];
 
 const ORG_COMPANY = ['name', 'tax_id', 'phone', 'email', 'website', 'address', 'country', 'currency', 'timezone'];
-const ORG_BANK    = ['bank_name', 'bank_account_name', 'bank_account_no', 'promptpay_id'];
+const ORG_BANK    = ['bank_name', 'bank_account_name', 'bank_account_no'];
 
 const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj?.[k] ?? '']));
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -285,7 +285,6 @@ export default function Settings() {
                 {text('bank_name', 'Bank name')}
                 {text('bank_account_name', 'Account name')}
                 {text('bank_account_no', 'Account number')}
-                {text('promptpay_id', 'PromptPay ID (phone or tax ID)')}
               </div>
             </>
           )}

@@ -48,7 +48,6 @@ def _build_org_context(org: dict) -> dict:
         "bank_name":         org.get("bank_name"),
         "bank_account_no":   org.get("bank_account_no"),
         "bank_account_name": org.get("bank_account_name"),
-        "promptpay_id":      org.get("promptpay_id"),
     }
 
 
@@ -463,7 +462,6 @@ async def get_invoice_pdf(
         "bank_name":         org.get("bank_name"),
         "bank_account_no":   org.get("bank_account_no"),
         "bank_account_name": org.get("bank_account_name"),
-        "promptpay_id":      org.get("promptpay_id"),
         "doc_status":        STATUS_LABELS.get(inv["status"], inv["status"].title()),
         "doc_status_class":  inv["status"],
     }

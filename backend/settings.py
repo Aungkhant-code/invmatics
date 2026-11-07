@@ -3,7 +3,7 @@ Invmatics Systems — Settings router
 Company profile, bank/payment details, invoice defaults and alert preferences.
 
 Everyone in the org can read settings; only admins can change them.
-These values are what the PDFs print (company details, bank account, PromptPay).
+These values are what the PDFs print (company details, bank account).
 """
 
 import base64
@@ -19,7 +19,7 @@ router = APIRouter()
 
 ORG_FIELDS = (
     "name, tax_id, phone, email, website, address, country, currency, timezone, "
-    "bank_name, bank_account_no, bank_account_name, promptpay_id, plan"
+    "bank_name, bank_account_no, bank_account_name, plan"
 )
 INVOICING_FIELDS = "default_payment_terms, default_tax_rate, default_invoice_notes"
 NOTIFY_FIELDS = (
@@ -56,7 +56,6 @@ class OrganisationUpdate(BaseModel):
     bank_name:         Optional[str] = Field(None, max_length=100)
     bank_account_no:   Optional[str] = Field(None, max_length=50)
     bank_account_name: Optional[str] = Field(None, max_length=100)
-    promptpay_id:      Optional[str] = Field(None, max_length=50)
 
     @field_validator("*", mode="before")
     @classmethod

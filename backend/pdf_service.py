@@ -105,7 +105,7 @@ def generate_invoice_pdf(ctx: dict[str, Any]) -> bytes:
         doc_status, doc_status_class
     Optional:
         order_ref, customer_ref, notes, discount_amount, amount_paid,
-        bank_name, bank_account_no, bank_account_name, promptpay_id
+        bank_name, bank_account_no, bank_account_name
     """
     status_class = ctx.get("doc_status_class")
     stamp_map = {"paid": "PAID", "overdue": "OVERDUE"}

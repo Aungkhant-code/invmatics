@@ -95,7 +95,7 @@
   </div>
 
   <!-- Payment details -->
-  {% if bank_name or promptpay_id %}
+  {% if bank_name or bank_account_no %}
   <div class="doc-box">
     <div class="doc-box-title">Payment details</div>
     <div class="doc-box-grid">
@@ -107,9 +107,6 @@
       {% endif %}
       {% if bank_account_name %}
       <div class="doc-box-row"><span>Name</span><span>{{ bank_account_name }}</span></div>
-      {% endif %}
-      {% if promptpay_id %}
-      <div class="doc-box-row"><span>PromptPay</span><span>{{ promptpay_id }}</span></div>
       {% endif %}
     </div>
   </div>
