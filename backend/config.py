@@ -35,7 +35,7 @@ CLERK_SECRET_KEY     = _require("CLERK_SECRET_KEY")
 CLERK_WEBHOOK_SECRET = _optional("CLERK_WEBHOOK_SECRET")
 
 # — Frontend ————————————————————————————————————————————————————————
-FRONTEND_URL = _require("FRONTEND_URL")
+FRONTEND_URL = _optional("FRONTEND_URL", "https://www.invmatics.com")
 
 # — CORS ————————————————————————————————————————————————————————————
 ALLOWED_ORIGINS = [
