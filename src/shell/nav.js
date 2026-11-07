@@ -28,10 +28,12 @@ export const NAV = [
 
 /** The nav a given role should see (parents with no visible children are dropped). */
 export function navFor(role) {
-  if (!role) return NAV.slice(0, 1);          // until we know the role: just the dashboard
+  // Role not known yet (very first load): offer only what every role can open, so the
+  // menu doesn't jump around much once the role arrives.
+  const sees = (roles) => role ? roles.includes(role) : roles.length === ALL.length;
   return NAV
-    .filter(i => i.roles.includes(role))
-    .map(i => i.children ? { ...i, children: i.children.filter(c => c.roles.includes(role)) } : i)
+    .filter(i => sees(i.roles))
+    .map(i => i.children ? { ...i, children: i.children.filter(c => sees(c.roles)) } : i)
     .filter(i => !i.children || i.children.length > 0);
 }
 

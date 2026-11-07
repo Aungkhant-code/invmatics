@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/react';
-import { clearCache } from './lib/cache';
+import { clearCache, readCache, writeCache } from './lib/cache';
 import './AppShell.css';
 
 import Sidebar from './shell/Sidebar';
@@ -66,7 +66,9 @@ export default function AppShell() {
   const [page, setPage] = useState('dashboard');
   const { signOut } = useAuth();
   const api = useApi();
-  const [role, setRole] = useState(null);
+  const { userId } = useAuth();
+  // Last known role for this user, so a refresh shows the full menu immediately
+  const [role, setRole] = useState(() => readCache(userId, 'role'));
 
   // Who am I? Decides which pages the sidebar offers.
   useEffect(() => {
@@ -74,11 +76,13 @@ export default function AppShell() {
     (async () => {
       try {
         const me = await api.get('/auth/me');
-        if (!cancelled) setRole(me.role);
+        if (cancelled) return;
+        setRole(me.role);
+        writeCache(userId, 'role', me.role);
       } catch { /* leave role unset: sidebar shows nothing extra, pages still enforce on the API */ }
     })();
     return () => { cancelled = true; };
-  }, [api]);
+  }, [api, userId]);
 
   // Only pages this role may open (the API enforces it too)
   const PageComponent = (role === null || canOpen(role, page)) ? (PAGES[page] || Placeholder) : NoAccess;
