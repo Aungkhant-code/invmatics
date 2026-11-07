@@ -1,15 +1,16 @@
 """
 Invmatics Systems — Products router
-Real Supabase queries, RLS enforced via JWT.
+Real Supabase queries. Every route verifies the Clerk token (require_auth) and
+runs through the tenant-scoped client, so a caller can only ever see their own org.
 """
 
 from uuid import UUID
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from database import get_authed_client, db_admin
+from auth import require_auth, get_client
 
 router = APIRouter()
 
@@ -47,15 +48,6 @@ class ProductUpdate(BaseModel):
     is_active:     Optional[bool] = None
 
 
-# ── Helper ─────────────────────────────────────────────────────────
-
-def _get_token(authorization: str) -> str:
-    """Extract Bearer token from Authorization header."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-    return authorization.split(" ", 1)[1]
-
-
 # ── Routes ─────────────────────────────────────────────────────────
 
 @router.get("/products")
@@ -64,16 +56,14 @@ async def list_products(
     category_id: Optional[UUID] = None,
     low_stock:   bool           = False,
     is_active:   bool           = True,
-    authorization: str = Header(None),
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
 ):
     """
     List all products for the authenticated org.
     Includes current stock level joined from stock_levels.
     Optionally filter by search (name/sku), category, or low stock flag.
     """
-    token = _get_token(authorization)
-    client = get_authed_client(token)
-
     query = (
         client.table("products")
         .select(
@@ -107,27 +97,12 @@ async def list_products(
     return {"products": products, "count": len(products)}
 
 
-# Temporary test route — remove before production
-@router.get("/products/test")
-async def test_products():
-    result = (
-        db_admin.table("products")
-        .select("*, stock_levels(qty_on_hand)")
-        .eq("org_id", "c907fa55-2169-4b90-bad9-0a199e28d50a")
-        .order("name")
-        .execute()
-    )
-    return {"products": result.data, "count": len(result.data or [])}
-
-
 @router.get("/products/low-stock")
 async def list_low_stock(
-    authorization: str = Header(None),
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
 ):
     """Returns all products at or below their reorder point."""
-    token = _get_token(authorization)
-    client = get_authed_client(token)
-
     result = (
         client.table("products")
         .select(
@@ -155,12 +130,10 @@ async def list_low_stock(
 @router.get("/products/{product_id}")
 async def get_product(
     product_id: UUID,
-    authorization: str = Header(None),
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
 ):
     """Get a single product with stock level and recent movements."""
-    token = _get_token(authorization)
-    client = get_authed_client(token)
-
     result = (
         client.table("products")
         .select(
@@ -196,21 +169,14 @@ async def get_product(
 @router.post("/products", status_code=201)
 async def create_product(
     body: ProductCreate,
-    authorization: str = Header(None),
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
 ):
     """
     Create a product and seed its stock_levels row in one go.
-    Uses db_admin so we can insert into both tables atomically.
+    Both inserts go through the tenant-scoped client, which stamps org_id.
     """
-    token = _get_token(authorization)
-    client = get_authed_client(token)
-
-    # Get org_id from the users table (RLS will ensure this is their org)
-    me = client.table("users").select("org_id").limit(1).execute()
-    if not me.data:
-        raise HTTPException(status_code=401, detail="User not found")
-
-    org_id = me.data[0]["org_id"]
+    org_id = user["org_id"]
 
     # Check SKU is unique within org
     existing = (
@@ -231,7 +197,7 @@ async def create_product(
         "supplier_id": str(body.supplier_id) if body.supplier_id else None,
     }
 
-    result = db_admin.table("products").insert(product_data).execute()
+    result = client.table("products").insert(product_data).execute()
 
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create product")
@@ -239,7 +205,7 @@ async def create_product(
     product = result.data[0]
 
     # Seed stock_levels row (every product starts at 0)
-    db_admin.table("stock_levels").insert({
+    client.table("stock_levels").insert({
         "org_id":     org_id,
         "product_id": product["id"],
         "qty_on_hand": 0,
@@ -254,12 +220,10 @@ async def create_product(
 async def update_product(
     product_id: UUID,
     body: ProductUpdate,
-    authorization: str = Header(None),
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
 ):
     """Update product fields. Partial update — only provided fields are changed."""
-    token = _get_token(authorization)
-    client = get_authed_client(token)
-
     updates = body.model_dump(exclude_none=True)
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -286,15 +250,13 @@ async def update_product(
 @router.delete("/products/{product_id}", status_code=204)
 async def delete_product(
     product_id: UUID,
-    authorization: str = Header(None),
+    user:   dict = Depends(require_auth),
+    client       = Depends(get_client),
 ):
     """
     Soft delete — sets is_active=False rather than removing the row.
     Preserves stock movement history and order references.
     """
-    token = _get_token(authorization)
-    client = get_authed_client(token)
-
     result = (
         client.table("products")
         .update({"is_active": False})

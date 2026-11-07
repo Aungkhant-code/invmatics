@@ -30,6 +30,7 @@ from fastapi import APIRouter, Request, HTTPException, Header, Depends
 from database import db_admin
 from config import CLERK_SECRET_KEY, CLERK_WEBHOOK_SECRET
 from org_sync import ensure_org_name, is_placeholder, apply_org_name
+import provisioning as pv
 from auth import require_auth, get_client
 
 router = APIRouter()
@@ -129,61 +130,23 @@ def _set_clerk_metadata(clerk_user_id: str, org_id: str, role: str = "admin"):
 
 def _handle_user_created(data: dict) -> dict:
     """
-    On new signup:
-        1. Determine org name from user's name or email
-        2. Create organisation
-        3. Create user linked to org
-        4. Set Clerk public_metadata with org_id + role
+    On new signup: make sure the user has an organisation.
+
+    Delegates to provisioning.provision_user(), which is idempotent: if the API
+    already provisioned this user on their first request (or a webhook is replayed),
+    nothing is duplicated.
     """
     clerk_user_id = data["id"]
-    email         = (data.get("email_addresses") or [{}])[0].get("email_address", "")
-    first_name    = data.get("first_name") or ""
-    last_name     = data.get("last_name") or ""
-    full_name     = f"{first_name} {last_name}".strip() or email.split("@")[0]
+    email         = pv._primary_email(data)
+    full_name     = pv._full_name(data, email)
 
-    org_name  = f"{full_name}'s Business"
-    base_slug = _slugify(full_name)
-    slug      = _unique_slug(base_slug)
-
-    org_result = db_admin.table("organisations").insert({
-        "name":     org_name,
-        "slug":     slug,
-        "email":    email,
-        "currency": "USD",
-        "timezone": "Asia/Bangkok",
-        "country":  "TH",
-        "plan":     "starter",
-    }).execute()
-
-    if not org_result.data:
-        raise Exception("Failed to create organisation")
-
-    org    = org_result.data[0]
-    org_id = org["id"]
-
-    user_result = db_admin.table("users").insert({
-        "org_id":        org_id,
-        "clerk_user_id": clerk_user_id,
-        "email":         email,
-        "full_name":     full_name,
-        "role":          "admin",
-        "is_active":     True,
-        "last_login_at": datetime.now(timezone.utc).isoformat(),
-    }).execute()
-
-    if not user_result.data:
-        raise Exception("Failed to create user")
-
-    try:
-        _set_clerk_metadata(clerk_user_id, org_id, "admin")
-    except Exception as e:
-        print(f"Warning: Failed to set Clerk metadata for {clerk_user_id}: {e}")
-
+    result = pv.provision_user(clerk_user_id, email=email, full_name=full_name or None)
     return {
         "event":   "user.created",
-        "org_id":  org_id,
-        "user_id": user_result.data[0]["id"],
+        "org_id":  result["org_id"],
+        "user_id": result["user_id"],
         "email":   email,
+        "created": result["created"],
     }
 
 

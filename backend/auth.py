@@ -15,6 +15,8 @@ import httpx
 from functools import lru_cache
 from fastapi import Header, HTTPException, Depends
 from config import CLERK_SECRET_KEY
+from provisioning import provision_user
+from tenant_client import TenantClient
 
 
 # ── JWKS cache ─────────────────────────────────────────────────────
@@ -98,6 +100,21 @@ def _verify_token(token: str) -> dict:
 
 # ── FastAPI dependencies ───────────────────────────────────────────
 
+VALID_ROLES = {"admin", "manager", "sales", "warehouse", "finance"}
+
+
+def _app_role(claims: dict):
+    """
+    The user's Invmatics role from the token.
+
+    The Clerk JWT template sends it as `app_role` (the plain `role` claim is
+    reserved by Supabase for the Postgres role). Falls back to `role` only when
+    it's a real app role. Returns None when the token carries no usable role.
+    """
+    role = claims.get("app_role") or claims.get("role")
+    return role if role in VALID_ROLES else None
+
+
 def require_auth(authorization: str = Header(None)) -> dict:
     """
     FastAPI dependency — verifies JWT and returns user context.
@@ -112,19 +129,31 @@ def require_auth(authorization: str = Header(None)) -> dict:
     token = _extract_token(authorization)
     claims = _verify_token(token)
 
+    clerk_user_id = claims.get("sub")
     org_id = claims.get("org_id")
+    role   = _app_role(claims)
+
     if not org_id:
-        raise HTTPException(
-            status_code=401,
-            detail="Token missing org_id claim. "
-                   "Check your Clerk JWT template includes org_id."
-        )
+        # Signed in with Clerk but no organisation yet (the signup webhook didn't run,
+        # or this token was issued before it did). Create the account now. This is
+        # idempotent and race-safe, so parallel requests converge on one organisation.
+        try:
+            acct = provision_user(clerk_user_id)
+        except Exception as e:
+            print(f"Provisioning failed for {clerk_user_id}: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="Your account is still being set up. Please try again in a moment.",
+            )
+        if not acct["is_active"]:
+            raise HTTPException(status_code=403, detail="This account has been deactivated.")
+        org_id, role = acct["org_id"], acct["role"]
 
     return {
         "token":          token,
-        "clerk_user_id":  claims.get("sub"),
+        "clerk_user_id":  clerk_user_id,
         "org_id":         org_id,
-        "role":           claims.get("role", "warehouse"),
+        "role":           role or "warehouse",
         "email":          claims.get("email"),
         "claims":         claims,
     }
@@ -201,15 +230,15 @@ def verify_clerk_webhook(
     return payload
 
 
-# ── Convenience: get Supabase client scoped to user ────────────────
-
-from database import get_authed_client
-
+# ── Convenience: Supabase client scoped to the caller's organisation ─
 
 def get_client(user: dict = Depends(require_auth)):
     """
-    Returns a Supabase client authenticated with the user's JWT.
-    RLS policies will automatically scope queries to their org.
+    Returns a tenant-scoped Supabase client (see tenant_client.py).
+
+    Supabase Auth can't validate Clerk tokens, so requests run through the
+    server-side client and the wrapper forces `org_id = <caller's org>` onto every
+    read, update, delete and insert.
 
     Usage:
         @router.get("/products")
@@ -219,4 +248,4 @@ def get_client(user: dict = Depends(require_auth)):
         ):
             result = client.table("products").select("*").execute()
     """
-    return get_authed_client(user["token"])
+    return TenantClient(user["org_id"])
