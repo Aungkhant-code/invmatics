@@ -10,13 +10,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+_MISSING = []
+
+
 def _require(key: str) -> str:
     val = os.getenv(key)
     if not val:
-        raise RuntimeError(
-            f"Missing required environment variable: {key}\n"
-            f"Add it to your Vercel environment settings."
-        )
+        _MISSING.append(key)
+        return ""
     return val
 
 
@@ -42,3 +43,6 @@ ALLOWED_ORIGINS = [
     for o in _optional("ALLOWED_ORIGINS", FRONTEND_URL).split(",")
     if o.strip()
 ]
+
+if _MISSING:
+    raise RuntimeError("Missing required environment variables: " + ", ".join(sorted(_MISSING)))
