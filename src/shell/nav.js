@@ -40,6 +40,7 @@ export function navFor(role) {
 
 /** Can this role open the page with this key? */
 export function canOpen(role, key) {
+  if (key === 'help') return true;          // everyone can reach Help & Support
   for (const i of NAV) {
     if (i.key === key) return i.roles.includes(role);
     const c = i.children?.find(x => x.key === key);

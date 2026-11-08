@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './Landing.css'
+import LogoGlyph from '../components/shared/Logo'
 
 // ── Icons ──────────────────────────────────────────────────────────
 const Icon = ({ path, path2 }) => (
@@ -81,7 +82,7 @@ function Nav() {
         <div className="lp-nav-inner">
           <a href="#" className="lp-logo">
             <span className="lp-logo-mark">
-              <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10" /></svg>
+              <LogoGlyph size={20} />
             </span>
             Invmatics
           </a>
@@ -602,7 +603,7 @@ function Footer() {
         <div className="lp-footer-inner">
           <div className="lp-footer-logo">
             <span className="lp-logo-mark">
-              <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10" /></svg>
+              <LogoGlyph size={20} />
             </span>
             Invmatics
           </div>

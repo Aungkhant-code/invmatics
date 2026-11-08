@@ -32,6 +32,7 @@ MONEY_SIDE = MGMT | {"sales", "finance"}
 RULES = [
     ("/auth/me",                  ALL,                          ALL),
     ("/rates",                    ALL,                          ALL),
+    ("/support",                  ALL,                          ALL),
     ("/settings",                 ALL,                          ADMIN),
     ("/staff",                    ADMIN,                        ADMIN),
 

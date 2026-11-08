@@ -1,0 +1,78 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Invmatics logo concepts</title>
+<style>
+:root{--g:#059669;--navy:#0F172A;--ink:#111827;--mut:#6B7280;--line:#E5E7EB;--bg:#F8FAFB}
+*{box-sizing:border-box;margin:0}
+body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--ink);padding:32px 20px 60px}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-size:26px;letter-spacing:-.5px}.sub{color:var(--mut);margin:6px 0 28px;font-size:14px}
+h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:36px 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}
+.card h3{font-size:15px;margin-bottom:2px}.card p{font-size:12.5px;color:var(--mut);margin-bottom:16px;min-height:34px}
+.row{display:flex;align-items:center;gap:14px}
+.tile{width:96px;height:96px;border-radius:22px;background:var(--g);display:grid;place-items:center}
+.tile.navy{background:var(--navy)}
+.tile svg{width:64px;height:64px}
+.small{display:flex;flex-direction:column;gap:10px;align-items:center}
+.small .t{border-radius:8px;background:var(--g);display:grid;place-items:center}
+.small .t svg{width:100%;height:100%}
+.lbl{font-size:10px;color:var(--mut)}
+.wm{border-radius:14px;padding:26px 28px;display:flex;align-items:center;gap:14px;margin-bottom:14px;border:1px solid var(--line)}
+.wm.light{background:#fff}.wm.dark{background:var(--navy);color:#fff;border-color:var(--navy)}
+.wm .mk{width:44px;height:44px;border-radius:11px;background:var(--g);display:grid;place-items:center;flex-shrink:0}
+.wm .mk svg{width:30px;height:30px}
+.name{font-size:30px;letter-spacing:-1px}
+.two b{font-weight:800}.two span{font-weight:300}
+.dotless{position:relative;display:inline-block;font-weight:700}
+.dotless i{position:absolute;left:.06em;top:.12em;width:.2em;height:.2em;background:var(--g);border-radius:.04em}
+.caps{font-weight:700;letter-spacing:.22em;font-size:24px}
+.tag{font-size:11px;color:var(--mut);margin-left:auto}
+.dark .tag{color:#94A3B8}
+</style></head><body><div class="wrap">
+<h1>Invmatics — box concepts</h1>
+<p class="sub">Nine takes on the box, on the brand green, on navy, and at favicon size. Then the wordmark next to the plain cube.</p>
+
+<h2>Symbols</h2>
+<div class="grid" id="grid"></div>
+
+<h2>Wordmarks with the solid cube</h2>
+<div id="wms"></div>
+</div>
+<script>
+const G="#059669";
+const S = {
+ solid:`<polygon points="32,9 52,20.5 32,32 12,20.5" fill="#fff"/><polygon points="12,23.5 30,34 30,55 12,44.5" fill="#fff" opacity=".7"/><polygon points="52,23.5 34,34 34,55 52,44.5" fill="#fff" opacity=".45"/>`,
+ outline:`<g fill="none" stroke="#fff" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"><polygon points="32,9 52,20.5 52,43.5 32,55 12,43.5 12,20.5"/><path d="M12 20.5 L32 32 L52 20.5 M32 32 V55"/></g>`,
+ open:`<g fill="#fff"><polygon points="12,30 52,30 47,55 17,55" /><polygon points="12,30 5,17 25,20 29,30" opacity=".7"/><polygon points="52,30 59,17 39,20 35,30" opacity=".7"/></g><rect x="26" y="37" width="12" height="5" rx="2.5" fill="${G}"/>`,
+ istack:`<polygon points="32,6 42,11.5 32,17 22,11.5" fill="#fff"/><polygon points="32,24 44,30 32,36 20,30" fill="#fff"/><polygon points="20,33 31,38.5 31,58 20,52.5" fill="#fff" opacity=".7"/><polygon points="44,33 33,38.5 33,58 44,52.5" fill="#fff" opacity=".45"/>`,
+ arrow:`<path d="M32 6 L44 19 H37 V28 H27 V19 H20 Z" fill="#fff"/><rect x="11" y="33" width="42" height="23" rx="5" fill="#fff" opacity=".8"/><rect x="25" y="40" width="14" height="5" rx="2.5" fill="${G}"/>`,
+ check:`<polygon points="32,9 52,20.5 32,32 12,20.5" fill="#fff"/><polygon points="12,23.5 30,34 30,55 12,44.5" fill="#fff" opacity=".85"/><polygon points="52,23.5 34,34 34,55 52,44.5" fill="#fff" opacity=".5"/><path d="M16.5 38 L21 43.5 L27 36" fill="none" stroke="${G}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+ tiles:`<g fill="#fff"><polygon points="32,10 40,14.5 32,19 24,14.5"/><polygon points="43,16.5 51,21 43,25.5 35,21"/><polygon points="21,16.5 29,21 21,25.5 13,21"/><polygon points="32,23 40,27.5 32,32 24,27.5"/></g><polygon points="12,28 30,38 30,57 12,47" fill="#fff" opacity=".7"/><polygon points="52,28 34,38 34,57 52,47" fill="#fff" opacity=".45"/>`,
+ archive:`<rect x="8" y="12" width="48" height="14" rx="4" fill="#fff"/><rect x="12" y="29" width="40" height="27" rx="4" fill="#fff" opacity=".8"/><rect x="25" y="36" width="14" height="5" rx="2.5" fill="${G}"/>`,
+ hexdot:`<g fill="none" stroke="#fff" stroke-width="4.5" stroke-linejoin="round"><polygon points="32,9 52,20.5 52,43.5 32,55 12,43.5 12,20.5"/></g><circle cx="32" cy="32" r="6.5" fill="#fff"/>`
+};
+const items=[
+ ['A. Solid cube','The baseline: three tones give depth. Bold and simple.','solid'],
+ ['B. Outline cube','Line version: lighter, more “tech”, scales well. Strokes get busy under ~16px.','outline'],
+ ['C. Open box','A box with the flaps open: ready to ship. Friendlier and more literal.','open'],
+ ['D. Cube “i”','A diamond dot above a prism: the cube is also the letter i.','istack'],
+ ['E. Box + arrow','Goods going in and out. Clear meaning, slightly generic.','arrow'],
+ ['F. Cube + check','Stock confirmed / in order. The check sits on the side face.','check'],
+ ['G. Tiled cube','Top face made of four tiles: modules working as one system.','tiles'],
+ ['H. Archive box','Front-on box with a handle slot. Very readable when tiny.','archive'],
+ ['I. Hex + dot','Cube outline with a tracked dot in the centre. Ties to the dot-grid idea.','hexdot']];
+const svg=(k,cls='')=>`<svg viewBox="0 0 64 64" class="${cls}">${S[k]}</svg>`;
+const onNavy=k=>svg(k).replace(/#fff/g,'#10B981').replace(new RegExp(G,'g'),'#0F172A');
+document.getElementById('grid').innerHTML=items.map(([t,d,k])=>`
+<div class="card"><h3>${t}</h3><p>${d}</p>
+<div class="row"><div class="tile">${svg(k)}</div><div class="tile navy">${onNavy(k)}</div>
+<div class="small"><div class="t" style="width:32px;height:32px">${svg(k)}</div><span class="lbl">32px</span>
+<div class="t" style="width:16px;height:16px;border-radius:4px">${svg(k)}</div><span class="lbl">16px favicon</span></div></div></div>`).join('');
+const mk=svg('solid');
+document.getElementById('wms').innerHTML=`
+<div class="wm light"><div class="mk">${mk}</div><div class="name two"><b>inv</b><span>matics</span></div><span class="tag">A · two-tone</span></div>
+<div class="wm dark"><div class="mk">${mk}</div><div class="name two"><b>inv</b><span>matics</span></div><span class="tag">A · two-tone</span></div>
+<div class="wm light"><div class="mk">${mk}</div><div class="name"><span class="dotless">ı<i></i></span><span style="font-weight:700">nvmatics</span></div><span class="tag">B · square dot on the i</span></div>
+<div class="wm dark"><div class="mk">${mk}</div><div class="name"><span class="dotless">ı<i></i></span><span style="font-weight:700">nvmatics</span></div><span class="tag">B · square dot on the i</span></div>`;
+</script></body></html>

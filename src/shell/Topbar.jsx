@@ -3,7 +3,7 @@ import { NAV } from './nav';
 
 export default function Topbar({ page, onMenu }) {
   const label = NAV.flatMap(n => n.children ? [n, ...n.children] : [n])
-    .find(n => n.key === page)?.label || 'Dashboard';
+    .find(n => n.key === page)?.label || (page === 'help' ? 'Help & Support' : 'Dashboard');
   const { user } = useUser();
 
   return (

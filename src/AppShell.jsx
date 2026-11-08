@@ -23,6 +23,7 @@ import PurchaseOrders from './pages/PurchaseOrders';
 import { getTheme, saveTheme, applyTheme } from './lib/theme';
 import { MoneyProvider } from './lib/MoneyProvider';
 import Delivery from './pages/Delivery';
+import Help from './pages/Help';
 import Settings from './pages/Settings';
 
 function Placeholder({ page }) {
@@ -63,6 +64,7 @@ const PAGES = {
   purchase:  PurchaseOrders,
   reports:   Analytics,
   delivery:  Delivery,
+  help:      Help,
   settings:  Settings,
 };
 

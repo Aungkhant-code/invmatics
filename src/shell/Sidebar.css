@@ -181,3 +181,5 @@
 
 .im-help-link .im-nav-icon          { opacity: 0.7; }
 .im-help-link:hover .im-nav-icon    { opacity: 1;   }
+
+.im-help-link.active { background: var(--sidebar-active-bg); color: #fff; }

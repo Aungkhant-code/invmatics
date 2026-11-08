@@ -466,3 +466,14 @@
   .im-dl.qty-only .im-dl-row { grid-template-columns: 1fr; }
   .im-dl-row .im-dl-name { grid-column: 1 / -1; }
 }
+
+/* ── Help & Support ──────────────────────────────────────────────── */
+.im-faq + .im-faq { border-top: 1px solid var(--border-light); }
+.im-faq-q {
+  width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  padding: 14px 20px; text-align: left; font-size: 14px; font-weight: 600; color: var(--text-primary);
+}
+.im-faq-q:hover { background: var(--bg); }
+.im-faq-sign { color: var(--text-muted); font-size: 18px; line-height: 1; }
+.im-faq-a { padding: 0 20px 16px; font-size: 13.5px; line-height: 1.6; color: var(--text-secondary); }
+.im-field textarea { resize: vertical; min-height: 120px; }

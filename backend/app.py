@@ -31,6 +31,7 @@ from receipts     import router as receipts_router
 from settings     import router as settings_router
 from staff        import router as staff_router
 from rates        import router as rates_router
+from support      import router as support_router
 
 app = FastAPI(
     title="Invmatics Systems API",
@@ -68,6 +69,7 @@ app.include_router(receipts_router,   prefix="/api", dependencies=GUARD)
 app.include_router(settings_router,   prefix="/api", dependencies=GUARD)
 app.include_router(staff_router,      prefix="/api", dependencies=GUARD)
 app.include_router(rates_router,      prefix="/api", dependencies=GUARD)
+app.include_router(support_router,    prefix="/api", dependencies=GUARD)
 
 
 @app.get("/api/health")
