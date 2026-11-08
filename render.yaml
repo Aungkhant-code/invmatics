@@ -1,0 +1,12 @@
+# Render blueprint for the PDF service (New + > Blueprint, pick this repo).
+services:
+  - type: web
+    name: invmatics-pdf
+    runtime: docker
+    dockerfilePath: ./pdf-service/Dockerfile
+    dockerContext: .
+    plan: free            # free sleeps after ~15 min idle (first PDF then takes ~30-50 s); use "starter" for always-on
+    healthCheckPath: /health
+    envVars:
+      - key: PDF_SERVICE_SECRET
+        generateValue: true

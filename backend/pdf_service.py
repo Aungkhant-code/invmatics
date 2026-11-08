@@ -55,9 +55,46 @@ with open(TEMPLATES_DIR / "base.css", "r", encoding="utf-8") as f:
     BASE_CSS = f.read()
 
 
+def _render_remote(url: str, template_name: str, context: dict[str, Any]) -> bytes:
+    """Render on the separate PDF service (used on Vercel, which can't run WeasyPrint)."""
+    import json
+    import httpx
+    from fastapi import HTTPException
+
+    try:
+        r = httpx.post(
+            f"{url.rstrip('/')}/render",
+            content=json.dumps({"template": template_name, "context": context}, default=str),
+            headers={
+                "Content-Type":  "application/json",
+                "X-PDF-Secret":  os.environ.get("PDF_SERVICE_SECRET", ""),
+            },
+            timeout=60,        # a sleeping free-tier container can take ~30 s to wake
+        )
+    except httpx.HTTPError as e:
+        print(f"PDF service unreachable: {e!r}")
+        raise HTTPException(status_code=503, detail="The PDF service isn't reachable. Please try again.")
+    if r.status_code != 200:
+        print(f"PDF service error {r.status_code}: {r.text[:200]}")
+        raise HTTPException(status_code=502, detail="The PDF service couldn't create this document.")
+    return r.content
+
+
 def _render(template_name: str, context: dict[str, Any]) -> bytes:
     """Render a Jinja2 template to PDF bytes."""
-    from weasyprint import HTML   # lazy: the API still boots where Pango is missing
+    remote = os.environ.get("PDF_SERVICE_URL")
+    if remote:
+        return _render_remote(remote, template_name, context)
+    try:
+        from weasyprint import HTML   # lazy: the API still boots where Pango is missing
+    except (ImportError, OSError) as e:
+        # Vercel's Python runtime has no Pango/GObject, which WeasyPrint needs.
+        print(f"PDF engine unavailable: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=503,
+            detail="PDF generation isn't available on this server yet.",
+        )
     template = _env.get_template(template_name)
     html_string = template.render(base_css=BASE_CSS, **context)
     return HTML(string=html_string).write_pdf()
