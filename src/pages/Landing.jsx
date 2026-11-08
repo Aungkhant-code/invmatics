@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import './Landing.css'
 
 // ── Icons ──────────────────────────────────────────────────────────
@@ -459,47 +460,116 @@ function Highlights() {
 }
 
 // ── Pricing ────────────────────────────────────────────────────────
-const INCLUDED = [
-  'Product catalogue with SKUs, barcodes and categories',
-  'Real-time stock, adjustments and movement history',
-  'Reorder points and a low-stock list',
-  'Sales and purchase orders, with a stock check on dispatch',
-  'Personalised invoices, created straight from an order',
-  'Payments, tax and PDF download',
-  'Delivery orders with driver, vehicle and quantities',
-  'Proof of delivery with photos',
-  'Customer and supplier directories',
-  'Dashboard, financial summary and sales reports',
-  'Team accounts with five roles',
-  'Multi-currency with live rates, and every time zone',
-  'Works on desktop and mobile',
+// Annual = 2 months free (pay for 10).
+const PLANS = [
+  {
+    name: 'Starter',
+    monthly: 15,
+    desc: 'For small shops and local retailers getting started.',
+    features: [
+      '3 staff accounts',
+      '500 products',
+      'Catalogue, stock and low-stock list',
+      'Sales and purchase orders',
+      'Personalised invoices with PDF download',
+      'Customer and supplier directories',
+      'Basic dashboard',
+      'Admin and Manager roles',
+      'Multi-currency and every time zone',
+      'Email support',
+    ],
+    featured: false,
+  },
+  {
+    name: 'Growth',
+    monthly: 39,
+    desc: 'For wholesalers and distributors managing real volume.',
+    features: [
+      'Everything in Starter',
+      '10 staff accounts',
+      'Unlimited products',
+      'Full dashboard and financial summary',
+      'Reports: revenue, top products and customers',
+      'Delivery orders and proof of delivery',
+      'All five roles: Admin, Manager, Sales, Warehouse, Finance',
+    ],
+    featured: true,
+  },
+  {
+    name: 'Business',
+    monthly: 99,
+    desc: 'For larger teams that need more people and faster help.',
+    features: [
+      'Everything in Growth',
+      'Unlimited staff accounts',
+      'Priority support',
+    ],
+    featured: false,
+  },
 ]
 
+const money = (n) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`
+
 function Pricing() {
+  const [annual, setAnnual] = useState(false)
+
   return (
     <section id="pricing" className="lp-pricing">
       <div className="lp-container">
         <div className="lp-section-label">Pricing</div>
-        <h2 className="lp-section-title">Everything included</h2>
+        <h2 className="lp-section-title">Simple pricing that grows with you</h2>
         <p className="lp-section-sub">
-          One complete system. Contact us for pricing.
+          Every plan includes invoicing, orders and stock control.
         </p>
-        <div className="lp-pricing-grid single">
-          <div className="lp-pricing-card featured">
-            <div className="lp-pricing-price custom">Contact for pricing</div>
-            <ul className="lp-pricing-features">
-              {INCLUDED.map((f) => (
-                <li key={f}>
-                  <span className="lp-check">✓</span>
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <a href="#cta" className="lp-pricing-cta primary">
-              Contact for pricing
-            </a>
-          </div>
+
+        <div className="lp-billing-toggle" role="group" aria-label="Billing period">
+          <button className={!annual ? 'active' : ''} onClick={() => setAnnual(false)}>Monthly</button>
+          <button className={annual ? 'active' : ''} onClick={() => setAnnual(true)}>
+            Annual <span>2 months free</span>
+          </button>
         </div>
+
+        <div className="lp-pricing-grid">
+          {PLANS.map((plan) => {
+            const perMonth = annual ? (plan.monthly * 10) / 12 : plan.monthly
+            return (
+              <div
+                className={`lp-pricing-card${plan.featured ? ' featured' : ''}`}
+                key={plan.name}
+              >
+                {plan.featured && (
+                  <div className="lp-pricing-badge">Most popular</div>
+                )}
+                <div className="lp-pricing-tier">{plan.name}</div>
+                <div className="lp-pricing-price">
+                  {money(perMonth)}
+                  <span>/month</span>
+                </div>
+                <div className="lp-pricing-billed">
+                  {annual ? `Billed ${money(plan.monthly * 10)} per year` : 'Billed monthly'}
+                </div>
+                <p className="lp-pricing-desc">{plan.desc}</p>
+                <ul className="lp-pricing-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <span className="lp-check">✓</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href="/sign-up"
+                  className={`lp-pricing-cta${plan.featured ? ' primary' : ' outline'}`}
+                >
+                  Start free trial
+                </a>
+              </div>
+            )
+          })}
+        </div>
+        <p className="lp-pricing-note">
+          Prices in USD. Thai Baht pricing available. All plans include a 14-day free trial.
+        </p>
       </div>
     </section>
   )
