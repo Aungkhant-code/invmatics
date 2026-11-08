@@ -933,6 +933,17 @@
   margin-bottom: 12px;
 }
 
+.lp-pricing-grid.single { grid-template-columns: minmax(0, 560px); justify-content: center; }
+
+.lp-pricing-price.custom {
+  font-size: 26px;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+}
+
 .lp-pricing-price span {
   font-size: 16px;
   font-weight: 500;

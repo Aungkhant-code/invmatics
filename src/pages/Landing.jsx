@@ -28,47 +28,47 @@ const FEATURES = [
   {
     icon: 'catalog',
     title: 'Product Catalogue',
-    desc: 'SKUs, barcodes, variants, custom spec fields, cost vs selling price, gross margin — all in one place.',
+    desc: 'SKUs, barcodes, categories, cost and selling prices, and reorder points for every product.',
   },
   {
     icon: 'stock',
     title: 'Stock Management',
-    desc: 'Real-time levels, reorder points, adjustments for receive / damage / theft, and full movement history.',
+    desc: 'Real-time stock levels, adjustments, a full movement history, and a low-stock list.',
   },
   {
     icon: 'orders',
-    title: 'Sales Orders',
-    desc: 'Full order lifecycle from draft to delivered. Partial fulfilment, back orders, and volume pricing tiers.',
+    title: 'Sales & Purchase Orders',
+    desc: 'Sales orders from draft to delivered with a stock check on dispatch, and purchase orders with receiving.',
   },
   {
     icon: 'invoice',
-    title: 'Invoice Generation',
-    desc: 'Auto-numbered invoices with configurable tax rates, payment links, bank details, PAID stamp, and instant PDF download.',
+    title: 'Invoices',
+    desc: 'Auto-numbered invoices with tax, payments and overdue tracking, created straight from an order and downloaded as PDF.',
   },
   {
     icon: 'customer',
-    title: 'Customer Management',
-    desc: 'Company directory, credit limits, payment terms, outstanding balance tracking, and per-customer pricing.',
+    title: 'Delivery',
+    desc: 'Delivery orders with driver, vehicle and quantities, proof of delivery with photos, and downloadable documents.',
   },
   {
     icon: 'supplier',
-    title: 'Supplier Management',
-    desc: 'Supplier directory, lead times, purchase order history, price comparison, and one-click reorder.',
+    title: 'Customers & Suppliers',
+    desc: 'Directories with contact details, tax IDs, payment terms, credit limits and supplier lead times.',
   },
   {
     icon: 'dashboard',
-    title: 'Dashboard & Financials',
-    desc: 'Live stock overview, monthly revenue vs last month, gross margin, top sellers, and outstanding payments.',
+    title: 'Dashboard & Reports',
+    desc: 'Financial summary, revenue trend, top products and customers, and revenue by category.',
   },
   {
     icon: 'staff',
-    title: 'Staff & Access Control',
-    desc: 'Role-based access for Admin, Manager, Sales, Warehouse, and Finance — with a full activity log.',
+    title: 'Team & Roles',
+    desc: 'Invite your team and give each person a role: Admin, Manager, Sales, Warehouse or Finance.',
   },
   {
     icon: 'reports',
-    title: 'Reports & Exports',
-    desc: 'Stock, movement, sales, margin, customer, and supplier reports — exportable to Excel and PDF.',
+    title: 'Multi-currency',
+    desc: 'Price products and orders in any currency, shown in yours using live exchange rates, with every time zone supported.',
   },
 ]
 
@@ -303,7 +303,7 @@ function InvoiceVisual() {
       <div className="lp-invoice-mock">
         <div className="lp-invoice-header">
           <div>
-            <div className="lp-invoice-brand">PK Myanmar Trading Co., Ltd.</div>
+            <div className="lp-invoice-brand">kuihua</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 13, color: 'var(--text)' }}>8 June 2026</div>
@@ -400,7 +400,7 @@ function Highlights() {
                 download the PDF — or mark it paid to stamp it.
               </p>
               <ul className="lp-checklist">
-                {['Sequential invoice numbers', 'Configurable tax rates per region', 'Wire, ACH, and online payment details', 'PAID stamp on settled invoices', 'Instant PDF download'].map(item => (
+                {['Sequential invoice numbers', 'Configurable tax rate and payment terms', 'Your logo and bank details on every invoice', 'PAID stamp on settled invoices', 'Instant PDF download'].map(item => (
                   <li key={item}>
                     <span className="lp-check">✓</span>
                     {item}
@@ -416,12 +416,11 @@ function Highlights() {
               <div className="lp-section-label">Stock Control</div>
               <h2>Know exactly what you have — and when to reorder</h2>
               <p>
-                Set reorder points per product. Get email and in-app alerts
-                the moment stock falls below your threshold. One click to
-                fire a purchase order straight to your supplier.
+                Set reorder points per product, see what's running low, and
+                create purchase orders for your suppliers in one click.
               </p>
               <ul className="lp-checklist">
-                {['Real-time stock levels per variant', 'Reorder point alerts (email + in-app)', 'Adjustments: receive, damage, theft, write-off', 'Full movement history', 'One-click reorder to supplier'].map(item => (
+                {['Real-time stock levels', 'Reorder points per product', 'Stock adjustments', 'Full movement history', 'One-click purchase orders from the low-stock list'].map(item => (
                   <li key={item}>
                     <span className="lp-check">✓</span>
                     {item}
@@ -460,60 +459,25 @@ function Highlights() {
 }
 
 // ── Pricing ────────────────────────────────────────────────────────
-const PLANS = [
-  {
-    name: 'Starter',
-    price: '$27',
-    period: '/month',
-    desc: 'Perfect for small shops and local retailers getting started.',
-    features: [
-      '3 staff accounts',
-      '500 products',
-      'Inventory & stock management',
-      'Sales orders',
-      'PDF invoice generation',
-      'Basic dashboard',
-      'Email support',
-    ],
-    cta: 'Get started',
-    featured: false,
-  },
-  {
-    name: 'Growth',
-    price: '$69',
-    period: '/month',
-    desc: 'Built for wholesalers and distributors managing real volume.',
-    features: [
-      '10 staff accounts',
-      'Unlimited products',
-      'Everything in Starter',
-      'Email invoice delivery',
-      'Full reporting & margin tracking',
-      'Supplier management',
-      '1 outbound webhook',
-      'LINE notifications',
-    ],
-    cta: 'Get started',
-    featured: true,
-  },
-  {
-    name: 'Business',
-    price: '$165',
-    period: '/month',
-    desc: 'For larger operations with multiple locations and integrations.',
-    features: [
-      'Unlimited staff accounts',
-      'Everything in Growth',
-      'Multi-location & warehouses',
-      'Customer self-service portal',
-      'Full REST API access',
-      'Unlimited webhooks',
-      'AI demand forecasting',
-      'Priority support',
-    ],
-    cta: 'Contact sales',
-    featured: false,
-  },
+const INCLUDED = [
+  'Product catalogue with SKUs, barcodes and categories',
+  'Real-time stock levels, adjustments and movement history',
+  'Reorder points and a low-stock list',
+  'Sales orders with a stock check on dispatch',
+  'Purchase orders with receiving',
+  'Auto-numbered invoices with tax, payments and PDF download',
+  'Create an invoice straight from a sales order',
+  'Delivery orders with driver, vehicle and quantities',
+  'Proof of delivery with photos',
+  'Delivery order and confirmation documents',
+  'Customer and supplier directories',
+  'Dashboard with financial summary',
+  'Reports: revenue trend, top products, top customers, revenue by category',
+  'Team accounts with five roles: Admin, Manager, Sales, Warehouse, Finance',
+  'Your company logo and bank details on documents',
+  'Multi-currency with live exchange rates',
+  'Every time zone',
+  'Works on desktop and mobile',
 ]
 
 function Pricing() {
@@ -521,47 +485,26 @@ function Pricing() {
     <section id="pricing" className="lp-pricing">
       <div className="lp-container">
         <div className="lp-section-label">Pricing</div>
-        <h2 className="lp-section-title">Simple, transparent pricing</h2>
+        <h2 className="lp-section-title">Everything included</h2>
         <p className="lp-section-sub">
-          No hidden fees. No per-seat charges on Growth and Business.
-          Cancel anytime.
+          One complete system. Contact us for pricing.
         </p>
-        <div className="lp-pricing-grid">
-          {PLANS.map((plan) => (
-            <div
-              className={`lp-pricing-card${plan.featured ? ' featured' : ''}`}
-              key={plan.name}
-            >
-              {plan.featured && (
-                <div className="lp-pricing-badge">Most popular</div>
-              )}
-              <div className="lp-pricing-tier">{plan.name}</div>
-              <div className="lp-pricing-price">
-                {plan.price}
-                <span>{plan.period}</span>
-              </div>
-              <p className="lp-pricing-desc">{plan.desc}</p>
-              <ul className="lp-pricing-features">
-                {plan.features.map((f) => (
-                  <li key={f}>
-                    <span className="lp-check">✓</span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <a
-                href="#"
-                className={`lp-pricing-cta${plan.featured ? ' primary' : ' outline'}`}
-              >
-                {plan.cta}
-              </a>
-            </div>
-          ))}
+        <div className="lp-pricing-grid single">
+          <div className="lp-pricing-card featured">
+            <div className="lp-pricing-price custom">Contact for pricing</div>
+            <ul className="lp-pricing-features">
+              {INCLUDED.map((f) => (
+                <li key={f}>
+                  <span className="lp-check">✓</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <a href="#cta" className="lp-pricing-cta primary">
+              Contact for pricing
+            </a>
+          </div>
         </div>
-        <p className="lp-pricing-note">
-          Prices shown in USD. Thai Baht pricing available — contact us.
-          All plans include a 14-day free trial.
-        </p>
       </div>
     </section>
   )
