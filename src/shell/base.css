@@ -11,6 +11,7 @@ button { background: none; border: none; cursor: pointer; font-family: inherit; 
   --surface:      #FFFFFF;
   --border:       #E5E7EB;
   --border-light: #F3F4F6;
+  --input-bg:     #FFFFFF;
 
   --sidebar-bg:   #0F172A;
   --sidebar-text: rgba(255,255,255,0.55);

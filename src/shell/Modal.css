@@ -69,7 +69,7 @@
   font-size: 13px;
   font-family: inherit;
   color: var(--text-primary);
-  background: #ffffff;
+  background: var(--input-bg, #ffffff);
   outline: none;
   transition: border-color 0.12s;
 }
@@ -98,7 +98,7 @@
   font-size: 13px;
   font-family: inherit;
   color: var(--text-primary);
-  background: #ffffff;
+  background: var(--input-bg, #ffffff);
   outline: none;
 }
 

@@ -4,6 +4,7 @@
   --surface:      #111A2E;
   --border:       #26334F;
   --border-light: #1C2740;
+  --input-bg:     #0B1220;
 
   --sidebar-bg:   #080E1B;
 
@@ -30,6 +31,7 @@
 :root[data-theme='dark'] .im-status-badge.blue { background: var(--blue-light); color: var(--blue); }
 :root[data-theme='dark'] .im-btn-primary { color: #052e22; }
 :root[data-theme='dark'] .im-modal { box-shadow: 0 24px 60px rgba(0,0,0,0.7); }
+:root[data-theme='dark'] .im-field select { background-color: var(--input-bg); }
 :root[data-theme='dark'] .im-field input::placeholder,
 :root[data-theme='dark'] .im-search::placeholder { color: var(--text-muted); }
 
@@ -63,3 +65,11 @@
 }
 .im-switch.on { background: #10B981; }
 .im-switch.on::after { transform: translateX(14px); }
+
+/* legacy list styles with fixed light colours */
+:root[data-theme='dark'] .im-prod-row:hover,
+:root[data-theme='dark'] .im-prod-row.selected,
+:root[data-theme='dark'] .im-order-row:hover,
+:root[data-theme='dark'] .im-order-row.expanded { background: var(--green-light); }
+:root[data-theme='dark'] .im-order-detail { background: var(--bg); }
+:root[data-theme='dark'] .im-add-line-btn { background: var(--surface); }
