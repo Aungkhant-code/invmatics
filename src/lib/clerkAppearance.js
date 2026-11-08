@@ -2,7 +2,7 @@
 // (Plain .js file on purpose: keeps the page components free of non-component exports.)
 export const CLERK_APPEARANCE = {
   variables: {
-    colorPrimary:         '#10B981',
+    colorPrimary:         '#059669',
     colorBackground:      '#1E293B',
     colorText:            '#F1F5F9',
     colorTextSecondary:   '#94A3B8',

@@ -83,7 +83,7 @@ function Nav() {
             <span className="lp-logo-mark">
               <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10" /></svg>
             </span>
-            Invmatics Systems
+            Invmatics
           </a>
           <ul className="lp-nav-links">
             <li><a href="#features">Features</a></li>
@@ -121,7 +121,7 @@ function DashboardMockup() {
           <span className="lp-mockup-dot lp-dot-red" />
           <span className="lp-mockup-dot lp-dot-yellow" />
           <span className="lp-mockup-dot lp-dot-green" />
-          <span className="lp-mockup-title">Invmatics Systems — Dashboard</span>
+          <span className="lp-mockup-title">Invmatics — Dashboard</span>
         </div>
 
         <div className="lp-mockup-body">
@@ -604,7 +604,7 @@ function Footer() {
             <span className="lp-logo-mark">
               <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10" /></svg>
             </span>
-            Invmatics Systems
+            Invmatics
           </div>
           <ul className="lp-footer-links">
             <li><a href="#">Features</a></li>
@@ -613,7 +613,7 @@ function Footer() {
             <li><a href="#">Terms</a></li>
           </ul>
           <div className="lp-footer-right">
-            <span className="lp-footer-copy">© 2026 Invmatics Systems</span>
+            <span className="lp-footer-copy">© 2026 Invmatics</span>
             <span className="lp-footer-brand">A product of KuiHua Technologies</span>
           </div>
         </div>

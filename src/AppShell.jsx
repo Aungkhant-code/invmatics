@@ -20,6 +20,7 @@ import Staff     from './pages/Staff';
 import StockMovements from './pages/StockMovements';
 import LowStock  from './pages/LowStock';
 import PurchaseOrders from './pages/PurchaseOrders';
+import { getTheme, saveTheme, applyTheme } from './lib/theme';
 import { MoneyProvider } from './lib/MoneyProvider';
 import Delivery from './pages/Delivery';
 import Settings from './pages/Settings';
@@ -73,6 +74,14 @@ export default function AppShell() {
   // Last known role for this user, so a refresh shows the full menu immediately
   const [role, setRole] = useState(() => readCache(userId, 'role'));
   const [navOpen, setNavOpen] = useState(false);
+  const [theme, setTheme] = useState(getTheme);
+
+  // dark theme applies to the app only: set while the shell is mounted, cleared on leaving
+  useEffect(() => {
+    applyTheme(theme);
+    return () => applyTheme('light');
+  }, [theme]);
+  const toggleTheme = () => setTheme(t => { const n = t === 'dark' ? 'light' : 'dark'; saveTheme(n); return n; });
   const [roleError, setRoleError] = useState(null);
   const [roleTry, setRoleTry] = useState(0);
 
@@ -111,6 +120,8 @@ export default function AppShell() {
       <Sidebar
         active={page}
         role={role}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         open={navOpen}
         onClose={() => setNavOpen(false)}
         onNavigate={(k) => { setPage(k); setNavOpen(false); }}

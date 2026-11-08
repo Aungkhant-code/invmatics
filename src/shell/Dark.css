@@ -1,0 +1,65 @@
+/* ── Dark mode (toggle in the sidebar). Only the colour variables change. ── */
+:root[data-theme='dark'] {
+  --bg:           #0B1220;
+  --surface:      #111A2E;
+  --border:       #26334F;
+  --border-light: #1C2740;
+
+  --sidebar-bg:   #080E1B;
+
+  --green:        #10B981;
+  --green-light:  rgba(16, 185, 129, 0.15);
+  --green-mid:    rgba(16, 185, 129, 0.28);
+
+  --text-primary:   #E5E7EB;
+  --text-secondary: #A3ACBA;
+  --text-muted:     #6F7A8E;
+
+  --blue:         #60A5FA;
+  --blue-light:   rgba(96, 165, 250, 0.15);
+  --orange:       #FBBF24;
+  --orange-light: rgba(251, 191, 36, 0.14);
+  --red:          #F87171;
+  --red-light:    rgba(248, 113, 113, 0.14);
+
+  --shadow:       0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md:    0 4px 12px rgba(0,0,0,0.5);
+}
+
+:root[data-theme='dark'] .im-shell { color: var(--text-primary); }
+:root[data-theme='dark'] .im-status-badge.blue { background: var(--blue-light); color: var(--blue); }
+:root[data-theme='dark'] .im-btn-primary { color: #052e22; }
+:root[data-theme='dark'] .im-modal { box-shadow: 0 24px 60px rgba(0,0,0,0.7); }
+:root[data-theme='dark'] .im-field input::placeholder,
+:root[data-theme='dark'] .im-search::placeholder { color: var(--text-muted); }
+
+/* ── Theme switch in the sidebar ── */
+.im-theme-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  color: var(--sidebar-text);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.im-theme-toggle:hover { background: var(--sidebar-hover-bg); color: rgba(255,255,255,0.85); }
+.im-theme-toggle .im-nav-icon { opacity: 0.7; }
+.im-switch {
+  margin-left: auto;
+  width: 34px; height: 20px; border-radius: 999px; flex-shrink: 0;
+  background: rgba(255,255,255,0.18);
+  position: relative; transition: background 0.15s;
+}
+.im-switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
+  transition: transform 0.15s;
+}
+.im-switch.on { background: #10B981; }
+.im-switch.on::after { transform: translateX(14px); }

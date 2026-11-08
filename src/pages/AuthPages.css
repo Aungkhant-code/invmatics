@@ -19,24 +19,15 @@
 }
 
 .im-auth-logo {
-  position: relative;
   width: 30px;
   height: 30px;
-  background: #10B981;
+  background: #059669;
   border-radius: 7px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-
-.im-auth-logo span {
-  position: absolute;
-  left: 6px;
-  height: 3px;
-  background: #fff;
-  border-radius: 2px;
-}
-.im-auth-logo span:nth-child(1) { top: 8px;  width: 18px; }
-.im-auth-logo span:nth-child(2) { top: 14px; width: 12px; opacity: 0.7; }
-.im-auth-logo span:nth-child(3) { top: 20px; width: 15px; opacity: 0.5; }
 
 .im-auth-name {
   color: #F1F5F9;
@@ -51,4 +42,4 @@
   text-decoration: none;
   transition: color 0.12s;
 }
-.im-auth-back:hover { color: #10B981; }
+.im-auth-back:hover { color: #059669; }
