@@ -9,7 +9,15 @@
 @page {
   size: A4;
   margin: 16mm 16mm 18mm 16mm;
+  /* Powered-by line: delete this block to remove it from every PDF */
   @bottom-center {
+    content: "Powered by Invmatics";
+    font-size: 8px;
+    color: #9CA3AF;
+    letter-spacing: 0.5px;
+    font-family: 'DejaVu Sans', sans-serif;
+  }
+  @bottom-right {
     content: "Page " counter(page) " / " counter(pages);
     font-size: 8px;
     color: #9CA3AF;

@@ -41,6 +41,7 @@ export default function Delivery() {
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [proof, setProof] = useState(null);
+  const [edit, setEdit] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const load = () => setReloadKey(k => k + 1);
 
@@ -84,10 +85,36 @@ export default function Delivery() {
   const startProof = (d) => setProof({
     id: d.id, received_by: '', notes: '', photos: [],
     items: (d.delivery_order_items || []).map(i => ({
-      item_id: i.id, description: i.description, ordered: i.qty_ordered,
-      qty_received: i.qty_ordered, condition: 'Good',
+      item_id: i.id, description: i.description, ordered: i.qty_delivered || i.qty_ordered,
+      qty_received: i.qty_delivered || i.qty_ordered, condition: 'Good',
     })),
   });
+
+  const startEdit = (d) => setEdit({
+    id: d.id, driver_name: d.driver_name || '', driver_phone: d.driver_phone || '',
+    vehicle_no: d.vehicle_no || '', delivery_date: d.delivery_date || '',
+    items: (d.delivery_order_items || []).map(i => ({
+      id: i.id, description: i.description, ordered: i.qty_ordered,
+      qty: i.qty_delivered || i.qty_ordered,
+    })),
+  });
+
+  const saveEdit = async () => {
+    setSaving(true);
+    try {
+      await api.put(`/delivery-orders/${edit.id}`, {
+        driver_name: edit.driver_name || null,
+        driver_phone: edit.driver_phone || null,
+        vehicle_no: edit.vehicle_no || null,
+        delivery_date: edit.delivery_date || null,
+        items: edit.items.map(i => ({ id: i.id, qty_delivered: Number(i.qty) })),
+      });
+      const id = edit.id;
+      setEdit(null);
+      await refreshSelected(id);
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
 
   const addPhotos = async (files) => {
     try {
@@ -182,6 +209,7 @@ export default function Delivery() {
                 <div className="im-row-actions">
                   <button className="im-btn-ghost" onClick={() => download(`/delivery-orders/${selected.do_number}/pdf`)}>↓ Delivery order</button>
                   {dc && <button className="im-btn-ghost" onClick={() => download(`/delivery-confirmations/${dc.dc_number}/pdf`)}>↓ Confirmation</button>}
+                  {canProve && <button className="im-btn-ghost" onClick={() => startEdit(selected)}>Assign driver &amp; qty</button>}
                   {selected.status === 'pending' && (
                     <button className="im-btn-ghost" disabled={saving} onClick={() => setStatus(selected, 'dispatched')}>Out for delivery</button>
                   )}
@@ -206,7 +234,7 @@ export default function Delivery() {
 
               <div className="im-detail-section-title">Items</div>
               <table className="im-table">
-                <thead><tr><th>Description</th><th className="num">Ordered</th><th className="num">Delivered</th></tr></thead>
+                <thead><tr><th>Description</th><th className="num">Ordered</th><th className="num">{dc ? 'Delivered' : 'To deliver'}</th></tr></thead>
                 <tbody>
                   {(selected.delivery_order_items || []).map(i => (
                     <tr key={i.id || i.description}><td>{i.description}</td><td className="num">{i.qty_ordered}</td><td className="num">{i.qty_delivered}</td></tr>
@@ -236,6 +264,41 @@ export default function Delivery() {
           )}
         </div>
       </div>
+
+      {edit && (
+        <div className="im-modal-overlay" onClick={() => setEdit(null)}>
+          <div className="im-modal" onClick={e => e.stopPropagation()}>
+            <div className="im-modal-header">
+              <h2>Assign driver &amp; quantities</h2>
+              <button className="im-modal-close" onClick={() => setEdit(null)}>✕</button>
+            </div>
+            <div className="im-modal-body">
+              <div className="im-form-grid">
+                <div className="im-field"><label>Driver</label>
+                  <input value={edit.driver_name} onChange={e => setEdit(p => ({ ...p, driver_name: e.target.value }))} /></div>
+                <div className="im-field"><label>Driver phone</label>
+                  <input value={edit.driver_phone} onChange={e => setEdit(p => ({ ...p, driver_phone: e.target.value }))} /></div>
+                <div className="im-field"><label>Vehicle no.</label>
+                  <input value={edit.vehicle_no} onChange={e => setEdit(p => ({ ...p, vehicle_no: e.target.value }))} /></div>
+                <div className="im-field"><label>Delivery date</label>
+                  <input type="date" value={edit.delivery_date} onChange={e => setEdit(p => ({ ...p, delivery_date: e.target.value }))} /></div>
+              </div>
+              <div className="im-detail-section-title" style={{ paddingLeft: 0 }}>Quantity to deliver</div>
+              {edit.items.map((it, idx) => (
+                <div key={it.id} style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13 }}>{it.description} <small style={{ color: 'var(--text-muted)' }}>of {it.ordered} ordered</small></span>
+                  <input type="number" min="0" max={it.ordered} value={it.qty}
+                    onChange={e => setEdit(p => ({ ...p, items: p.items.map((x, j) => j === idx ? { ...x, qty: e.target.value } : x) }))} />
+                </div>
+              ))}
+            </div>
+            <div className="im-modal-footer">
+              <button className="im-btn-ghost" onClick={() => setEdit(null)}>Cancel</button>
+              <button className="im-btn-primary" onClick={saveEdit} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {proof && (
         <div className="im-modal-overlay" onClick={() => setProof(null)}>

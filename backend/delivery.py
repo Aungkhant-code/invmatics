@@ -166,18 +166,42 @@ async def update_delivery_order(
     client      = Depends(get_client),
 ):
     updates = body.model_dump(exclude_none=True)
-    if not updates:
+    lines = updates.pop("items", None)
+    if not updates and lines is None:
         raise HTTPException(status_code=400, detail="No fields to update")
     if "delivery_date" in updates:
         updates["delivery_date"] = str(updates["delivery_date"])
+    if "status" in updates and updates["status"] not in ("pending", "dispatched", "cancelled"):
+        raise HTTPException(status_code=400, detail="Use proof of delivery to mark a delivery delivered")
 
-    result = (
-        client.table("delivery_orders").update(updates)
-        .eq("id", str(do_id)).execute()
+    current = _first(
+        client.table("delivery_orders")
+        .select("id, status, delivery_order_items(id, qty_ordered)")
+        .eq("id", str(do_id))
     )
-    if not result.data:
+    if not current:
         raise HTTPException(status_code=404, detail="Delivery order not found")
-    return result.data[0]
+    if current["status"] in ("delivered", "confirmed", "cancelled"):
+        raise HTTPException(status_code=409, detail=f"A {current['status']} delivery can't be edited")
+
+    if lines is not None:
+        ordered = {str(i["id"]): int(i["qty_ordered"]) for i in current.get("delivery_order_items") or []}
+        for ln in lines:
+            key = str(ln.get("id"))
+            if key not in ordered:
+                raise HTTPException(status_code=400, detail="Unknown delivery line")
+            try:
+                qty = int(ln.get("qty_delivered"))
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="Quantities must be whole numbers")
+            if qty < 0 or qty > ordered[key]:
+                raise HTTPException(status_code=400, detail=f"Quantity must be between 0 and {ordered[key]}")
+            db_admin.table("delivery_order_items").update({"qty_delivered": qty}) \
+                .eq("id", key).eq("org_id", user["org_id"]).execute()
+
+    if updates:
+        client.table("delivery_orders").update(updates).eq("id", str(do_id)).execute()
+    return {"id": str(do_id), **updates}
 
 
 @router.post("/delivery-orders/from-order/{order_id}", status_code=201)
@@ -214,7 +238,7 @@ async def create_from_sales_order(
     }).execute().data[0]
     lines = [{
         "org_id": org_id, "delivery_order_id": do["id"], "product_id": l.get("product_id"),
-        "description": l["description"], "qty_ordered": l["qty_ordered"], "qty_delivered": 0,
+        "description": l["description"], "qty_ordered": l["qty_ordered"], "qty_delivered": l["qty_ordered"],
     } for l in (order.get("sales_order_items") or [])]
     if lines:
         db_admin.table("delivery_order_items").insert(lines).execute()
@@ -237,7 +261,7 @@ async def submit_proof(
 
     do = _first(
         client.table("delivery_orders")
-        .select("id, do_number, status, sales_order_id, delivery_order_items(id, product_id, description, sku, qty_ordered)")
+        .select("id, do_number, status, sales_order_id, delivery_order_items(id, product_id, description, sku, qty_ordered, qty_delivered)")
         .eq("id", str(do_id))
     )
     if not do:
@@ -259,16 +283,17 @@ async def submit_proof(
     rows, updates = [], []
     for it in do.get("delivery_order_items") or []:
         given = by_id.get(str(it["id"]), {})
-        qty = given.get("qty_received", it["qty_ordered"])
+        planned = it.get("qty_delivered") or it["qty_ordered"]
+        qty = given.get("qty_received", planned)
         try:
             qty = max(0, min(int(qty), int(it["qty_ordered"])))
         except (TypeError, ValueError):
-            qty = it["qty_ordered"]
+            qty = planned
         cond = (given.get("condition") or "Good")[:40]
         rows.append({
             "org_id": org_id, "delivery_confirmation_id": dc["id"], "product_id": it.get("product_id"),
             "description": it["description"], "sku": it.get("sku"),
-            "qty_delivered": it["qty_ordered"], "qty_received": qty,
+            "qty_delivered": planned, "qty_received": qty,
             "condition": cond, "condition_class": "good" if cond.lower() == "good" else "damaged",
         })
         updates.append((it["id"], qty))

@@ -449,6 +449,8 @@ class DeliveryOrderCreate(BaseModel):
 
 class DeliveryOrderUpdate(BaseModel):
     status:          Optional[str] = None
+    delivery_address:Optional[str] = None
+    items:           Optional[List[dict]] = None   # [{id, qty_delivered}] planned quantities
     delivery_date:   Optional[date] = None
     driver_name:     Optional[str] = None
     driver_phone:    Optional[str] = None
