@@ -20,6 +20,7 @@ import Staff     from './pages/Staff';
 import StockMovements from './pages/StockMovements';
 import LowStock  from './pages/LowStock';
 import PurchaseOrders from './pages/PurchaseOrders';
+import Delivery from './pages/Delivery';
 import Settings from './pages/Settings';
 
 function Placeholder({ page }) {
@@ -59,6 +60,7 @@ const PAGES = {
   sales:     Orders,
   purchase:  PurchaseOrders,
   reports:   Analytics,
+  delivery:  Delivery,
   settings:  Settings,
 };
 

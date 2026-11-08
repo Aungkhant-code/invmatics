@@ -23,10 +23,9 @@
         <span class="doc-biz-name">{{ org.name }}</span>
       </div>
       <div class="doc-biz-details">
-        {{ org.address }}<br>
+        {% if org.address and org.address != 'None' %}{{ org.address }}<br>{% endif %}
         {% if org.tax_id %}Tax ID: {{ org.tax_id }}<br>{% endif %}
         {% if org.phone %}Tel: {{ org.phone }}{% endif %}
-        {% if org.email %} &middot; {{ org.email }}{% endif %}
       </div>
     </div>
     <div class="doc-title-block">

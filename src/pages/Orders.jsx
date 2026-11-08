@@ -28,6 +28,7 @@ export default function Orders() {
   const [selected, setSelected] = useState(null);
   const [tab,      setTab]      = useState('all');
   const [error,    setError]    = useState(null);
+  const [notice,   setNotice]   = useState(null);
   const [search,   setSearch]   = useState('');
   const [debounced, setDebounced] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
@@ -135,11 +136,11 @@ export default function Orders() {
     } catch (e) { setError(e.message); }
   };
 
-  const downloadDO = async (orderNumber) => {
+  const createDelivery = async (order) => {
     try {
-      const url = await api.pdf(`/delivery-orders/${orderNumber}/pdf`);
-      window.open(url, '_blank');
-    } catch { setError('No delivery order found for this order'); }
+      const d = await api.post(`/delivery-orders/from-order/${order.id}`);
+      setNotice(`Delivery order ${d.do_number} created — find it under Delivery.`);
+    } catch (e) { setError(e.message); }
   };
 
   return (
@@ -153,6 +154,7 @@ export default function Orders() {
       </div>
 
       {error && <div className="im-error" onClick={() => setError(null)}>{error} ✕</div>}
+      {notice && <div className="im-error" style={{ borderColor: "var(--green)", color: "var(--green)" }} onClick={() => setNotice(null)}>{notice} ✕</div>}
 
       {/* Status tabs */}
       <div className="im-tabs">
@@ -225,9 +227,11 @@ export default function Orders() {
                   {!(selected.invoices || []).some(i => i.status !== 'void') && selected.status !== 'cancelled' && (
                     <button className="im-btn-ghost" onClick={() => createInvoice(selected)}>Create invoice</button>
                   )}
-                  <button className="im-btn-ghost" onClick={() => downloadDO(selected.order_number)}>
-                    Delivery order PDF
-                  </button>
+                  {['confirmed', 'dispatched', 'delivered'].includes(selected.status) && (
+                    <button className="im-btn-ghost" onClick={() => createDelivery(selected)}>
+                      Create delivery order
+                    </button>
+                  )}
                 </div>
               </div>
 
