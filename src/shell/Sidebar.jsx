@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Icon, ICONS } from './Icon';
 import { navFor } from './nav';
 
-export default function Sidebar({ active, onNavigate, role }) {
+export default function Sidebar({ active, onNavigate, role, open, onClose }) {
   const nav = navFor(role);
   const [expanded, setExpanded] = useState({ inventory: true, orders: false });
 
@@ -11,7 +11,9 @@ export default function Sidebar({ active, onNavigate, role }) {
   }
 
   return (
-    <aside className="im-sidebar">
+    <>
+    <div className={`im-backdrop ${open ? 'open' : ''}`} onClick={onClose} />
+    <aside className={`im-sidebar ${open ? 'open' : ''}`}>
       <div className="im-sidebar-logo">
         <div className="im-logo-mark">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -68,5 +70,6 @@ export default function Sidebar({ active, onNavigate, role }) {
         </button>
       </div>
     </aside>
+    </>
   );
 }

@@ -72,6 +72,7 @@ export default function AppShell() {
   const { userId } = useAuth();
   // Last known role for this user, so a refresh shows the full menu immediately
   const [role, setRole] = useState(() => readCache(userId, 'role'));
+  const [navOpen, setNavOpen] = useState(false);
   const [roleError, setRoleError] = useState(null);
   const [roleTry, setRoleTry] = useState(0);
 
@@ -92,6 +93,16 @@ export default function AppShell() {
     return () => { cancelled = true; };
   }, [api, userId, roleTry]);
 
+  // On phones the detail panel stacks under the list: bring it into view when a row is tapped.
+  useEffect(() => {
+    const onClick = (e) => {
+      if (window.innerWidth > 900 || !e.target.closest?.('.im-list-row')) return;
+      setTimeout(() => document.querySelector('.im-split-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250);
+    };
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, []);
+
   // Only pages this role may open (the API enforces it too)
   const PageComponent = (role === null || canOpen(role, page)) ? (PAGES[page] || Placeholder) : NoAccess;
 
@@ -100,11 +111,13 @@ export default function AppShell() {
       <Sidebar
         active={page}
         role={role}
-        onNavigate={setPage}
+        open={navOpen}
+        onClose={() => setNavOpen(false)}
+        onNavigate={(k) => { setPage(k); setNavOpen(false); }}
         onSignOut={() => { clearCache(); signOut({ redirectUrl: '/' }); }}
       />
       <div className="im-main">
-        <Topbar page={page} />
+        <Topbar page={page} onMenu={() => setNavOpen(true)} />
         <main className="im-content">
           {roleError && role === null && (
             <div className="im-error" style={{ marginBottom: 12 }}>

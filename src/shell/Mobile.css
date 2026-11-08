@@ -1,0 +1,88 @@
+/* ── Mobile / small screens ───────────────────────────────────────────
+   ≤900px: sidebar becomes a slide-in drawer, split views stack.
+   ≤640px: modals become bottom sheets, forms go single-column.
+   Imported last so it wins over the per-page stylesheets. */
+
+.im-menu-btn { display: none; }
+.im-backdrop { display: none; }
+
+html, body { overflow-x: hidden; }
+.im-shell { height: 100vh; height: 100dvh; }
+
+@media (max-width: 900px) {
+  .im-menu-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; margin-left: -8px; margin-right: 4px;
+    border-radius: 8px; color: var(--text-primary);
+  }
+  .im-menu-btn:active { background: var(--bg); }
+
+  .im-sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 900;
+    height: 100vh; height: 100dvh;
+    width: min(280px, 84vw);
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    box-shadow: none;
+  }
+  .im-sidebar.open { transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,.45); }
+  .im-backdrop.open {
+    display: block; position: fixed; inset: 0; z-index: 800; background: rgba(0,0,0,.5);
+  }
+
+  .im-topbar { padding: 0 12px; }
+  .im-topbar-left { display: flex; align-items: center; min-width: 0; }
+  .im-topbar-org { display: none; }
+  .im-content { padding: 14px 12px calc(20px + env(safe-area-inset-bottom)); }
+
+  .im-page-header { flex-wrap: wrap; gap: 10px; }
+  .im-page-header > * { min-width: 0; }
+
+  /* wide tables scroll inside their card instead of stretching the page */
+  .im-panel { overflow-x: auto; }
+  .im-table th, .im-table td { padding: 10px 10px; white-space: nowrap; }
+
+  .im-split-detail { min-height: 0; }
+  .im-detail-header { flex-direction: column; align-items: stretch; padding: 16px; }
+  .im-detail-header .im-row-actions { width: 100%; }
+
+  .im-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .im-tabs::-webkit-scrollbar { display: none; }
+  .im-tab { white-space: nowrap; flex-shrink: 0; }
+
+  .im-search { max-width: none; }
+}
+
+@media (max-width: 640px) {
+  /* bigger touch targets; 16px inputs stop iOS zooming on focus */
+  .im-btn-primary, .im-btn-ghost { min-height: 40px; }
+  input, select, textarea { font-size: 16px !important; }
+  .im-field input, .im-field select, .im-field textarea { min-height: 42px; }
+
+  .im-detail-grid { grid-template-columns: 1fr; }
+  .im-stats-grid, .rpt-kpi-grid, .im-fin-grid { grid-template-columns: 1fr 1fr; }
+
+  .im-toolbar { flex-wrap: wrap; }
+  .im-toolbar > * { flex: 1 1 100%; }
+
+  .im-row-actions > button { flex: 1 1 auto; }
+
+  /* modal → bottom sheet */
+  .im-modal-overlay { padding: 0; align-items: flex-end; }
+  .im-modal {
+    max-width: none; width: 100%;
+    max-height: 94vh; max-height: 94dvh;
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+  }
+  .im-modal-header, .im-modal-body, .im-modal-footer { padding-left: 16px; padding-right: 16px; }
+  .im-modal-footer { padding-bottom: calc(16px + env(safe-area-inset-bottom)); position: sticky; bottom: 0; background: var(--surface); }
+  .im-modal-footer button { flex: 1; }
+
+  .im-form-grid { grid-template-columns: 1fr; }
+  .im-field.span-2 { grid-column: auto; }
+
+  .im-stats-grid { grid-template-columns: 1fr 1fr !important; }
+  .im-table-head, .im-table-row { grid-template-columns: 64px 1fr 78px 72px; padding-left: 12px; padding-right: 12px; font-size: 12px; gap: 4px; }
+  .im-page-title { font-size: 18px; }
+}
