@@ -31,6 +31,7 @@ MONEY_SIDE = MGMT | {"sales", "finance"}
 # (prefix, read roles, write roles) — prefixes are matched against the path after "/api"
 RULES = [
     ("/auth/me",                  ALL,                          ALL),
+    ("/rates",                    ALL,                          ALL),
     ("/settings",                 ALL,                          ADMIN),
     ("/staff",                    ADMIN,                        ADMIN),
 

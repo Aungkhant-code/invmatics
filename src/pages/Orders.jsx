@@ -5,14 +5,11 @@
 
 import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
-
-function fmt(n) {
-  if (n == null) return '—';
-  return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { fmt, fmtDoc, baseCurrency, priceIn, effectiveRate } from '../lib/money';
+import OrderCurrency from '../components/shared/OrderCurrency';
 
 const EMPTY_LINE = { product_id: '', qty: '1', unit_price: '' };
-const EMPTY_FORM = { customer_id: '', due_date: '', customer_ref: '', notes: '', makeInvoice: true, lines: [] };
+const EMPTY_FORM = { customer_id: '', due_date: '', customer_ref: '', notes: '', makeInvoice: true, currency: '', exchange_rate: '', lines: [] };
 
 const STATUS_TABS = ['all', 'draft', 'confirmed', 'dispatched', 'delivered', 'cancelled'];
 
@@ -77,8 +74,18 @@ export default function Orders() {
 
   const pickProduct = (i, productId) => {
     const p = products.find(x => x.id === productId);
-    setLine(i, { product_id: productId, unit_price: p ? String(p.selling_price) : '' });
+    setLine(i, { product_id: productId, unit_price: p ? priceIn(p.selling_price, p.currency, form.currency) : '' });
   };
+
+  // switching currency re-prices every chosen product into the new currency
+  const changeCurrency = (cur) => setForm(f => ({
+    ...f, currency: cur, exchange_rate: '',
+    lines: f.lines.map(l => {
+      const p = products.find(x => x.id === l.product_id);
+      return p ? { ...l, unit_price: priceIn(p.selling_price, p.currency, cur) } : l;
+    }),
+  }));
+  const orderCur = form.currency || baseCurrency();
 
   const validLines = form.lines.filter(l => l.product_id && Number(l.qty) > 0);
   const orderTotal = validLines.reduce((n, l) => n + Number(l.qty) * (Number(l.unit_price) || 0), 0);
@@ -91,6 +98,8 @@ export default function Orders() {
         due_date:     form.due_date || null,
         customer_ref: form.customer_ref || null,
         notes:        form.notes || null,
+        currency:      orderCur,
+        exchange_rate: orderCur === baseCurrency() ? null : (parseFloat(form.exchange_rate) || null),
         items: validLines.map(l => ({
           product_id: l.product_id,
           qty:        parseInt(l.qty),
@@ -195,7 +204,7 @@ export default function Orders() {
                   <span className={`im-status-badge ${STATUS_CLS[o.status] || 'muted'}`}>{o.status}</span>
                 </div>
                 <div className="im-list-sub">
-                  {o.customers?.name} · {fmt(o.total_amount)} · {o.order_date}
+                  {o.customers?.name} · {fmtDoc(o.total_amount, o)} · {o.order_date}
                 </div>
               </div>
             ))}
@@ -274,17 +283,17 @@ export default function Orders() {
                           <td>{item.description}</td>
                           <td className="num">{item.qty_ordered}</td>
                           <td className="num">{item.qty_dispatched}</td>
-                          <td className="num">{fmt(item.unit_price)}</td>
-                          <td className="num">{fmt(item.line_total)}</td>
+                          <td className="num">{fmtDoc(item.unit_price, selected)}</td>
+                          <td className="num">{fmtDoc(item.line_total, selected)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                   <div style={{ padding: '12px 16px', textAlign: 'right' }}>
                     <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>
-                      Subtotal: {fmt(selected.subtotal)}  ·  Tax: {fmt(selected.tax_amount)}
+                      Subtotal: {fmtDoc(selected.subtotal, selected)}  ·  Tax: {fmtDoc(selected.tax_amount, selected)}
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 800 }}>Total: {fmt(selected.total_amount)}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800 }}>Total: {fmtDoc(selected.total_amount, selected)}</div>
                   </div>
                 </>
               )}
@@ -317,6 +326,8 @@ export default function Orders() {
                   <label>Customer PO ref</label>
                   <input value={form.customer_ref} onChange={e => setForm(f => ({ ...f, customer_ref: e.target.value }))} />
                 </div>
+                <OrderCurrency id="im-cur-so" currency={form.currency} rate={form.exchange_rate}
+                  onCurrency={changeCurrency} onRate={v => setForm(f => ({ ...f, exchange_rate: v }))} />
               </div>
 
               <div className="im-detail-section-title">Items</div>
@@ -338,7 +349,7 @@ export default function Orders() {
                         onChange={e => setLine(i, { qty: e.target.value })} />
                       <input type="number" min="0" step="0.01" value={l.unit_price} aria-label="Unit price"
                         placeholder="0.00" onChange={e => setLine(i, { unit_price: e.target.value })} />
-                      <div className="im-line-total">{fmt((Number(l.qty) || 0) * (Number(l.unit_price) || 0))}</div>
+                      <div className="im-line-total">{fmt((Number(l.qty) || 0) * (Number(l.unit_price) || 0), orderCur)}</div>
                       <button className="im-line-remove" title="Remove line" aria-label="Remove line"
                         disabled={form.lines.length === 1}
                         onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, j) => j !== i) }))}>✕</button>
@@ -354,7 +365,7 @@ export default function Orders() {
                   <button className="im-btn-ghost" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>
                     + Add line
                   </button>
-                  <div className="im-lines-total"><span>Total</span>{fmt(orderTotal)}</div>
+                  <div className="im-lines-total"><span>Total</span>{fmt(orderTotal, orderCur)}{orderCur !== baseCurrency() && effectiveRate(orderCur, form.exchange_rate) ? ` ≈ ${fmt(orderTotal * effectiveRate(orderCur, form.exchange_rate))}` : ''}</div>
                 </div>
               </div>
 

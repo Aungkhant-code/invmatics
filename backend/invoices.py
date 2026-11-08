@@ -291,6 +291,8 @@ async def create_invoice_from_order(
             "tax_amount":     tax_amount,
             "total_amount":   round(subtotal + tax_amount, 2),
             "amount_paid":    0,
+            "currency":       order.get("currency"),
+            "exchange_rate":  order.get("exchange_rate") or 1,
             "notes":          order.get("notes") or settings.get("default_invoice_notes"),
         }).execute().data
     except Exception as e:
@@ -439,7 +441,7 @@ async def get_invoice_pdf(
     ctx = {
         "org":              _build_org_context(org),
         "customer":         _build_customer_context(customer),
-        "currency":         org.get("currency", "$"),
+        "currency":         inv.get("currency") or org.get("currency", "$"),
         "doc_number":       inv["invoice_number"],
         "invoice_date":     inv["invoice_date"],
         "due_date":         inv["due_date"],

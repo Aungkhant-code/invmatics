@@ -5,15 +5,12 @@
 
 import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
-
-function fmt(n) {
-  if (n == null) return '—';
-  return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { baseCurrency, fmtProduct } from '../lib/money';
+import { CurrencyInput } from '../components/shared/Pickers';
 
 const EMPTY_FORM = {
   name: '', sku: '', unit: 'unit', description: '',
-  cost_price: '', selling_price: '', reorder_point: '', reorder_qty: '',
+  cost_price: '', selling_price: '', currency: '', reorder_point: '', reorder_qty: '',
   qty_on_hand: '',
 };
 
@@ -58,7 +55,7 @@ export default function Catalog() {
     setForm({
       name: p.name, sku: p.sku, unit: p.unit || 'unit',
       description: p.description || '',
-      cost_price: p.cost_price, selling_price: p.selling_price,
+      cost_price: p.cost_price, selling_price: p.selling_price, currency: p.currency || '',
       reorder_point: p.reorder_point, reorder_qty: p.reorder_qty,
       qty_on_hand: p.stock_levels?.qty_on_hand ?? 0,
     });
@@ -75,6 +72,7 @@ export default function Catalog() {
         ...rest,
         cost_price:    parseFloat(form.cost_price)    || 0,
         selling_price: parseFloat(form.selling_price) || 0,
+        currency:      form.currency || baseCurrency(),
         reorder_point: parseInt(form.reorder_point)   || 0,
         reorder_qty:   parseInt(form.reorder_qty)     || 0,
       };
@@ -174,8 +172,8 @@ export default function Catalog() {
                     </td>
                     <td><span className="im-mono">{p.sku}</span></td>
                     <td>{p.unit}</td>
-                    <td className="num">{fmt(p.cost_price)}</td>
-                    <td className="num">{fmt(p.selling_price)}</td>
+                    <td className="num">{fmtProduct(p.cost_price, p)}</td>
+                    <td className="num">{fmtProduct(p.selling_price, p)}</td>
                     <td className="num">
                       <span style={{ color: isLow ? 'var(--red)' : 'var(--text-primary)', fontWeight: 700 }}>
                         {qty}
@@ -225,6 +223,12 @@ export default function Catalog() {
                   <select value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}>
                     {['unit','roll','box','kg','m','l','set','pair'].map(u => <option key={u}>{u}</option>)}
                   </select>
+                </div>
+                <div className="im-field span-2">
+                  <label>Price currency</label>
+                  <CurrencyInput value={form.currency} id="im-cur-product"
+                    onChange={v => setForm(f => ({ ...f, currency: v }))} />
+                  <small style={{ color: 'var(--text-muted)' }}>Leave blank to use {baseCurrency()}. Prices show in {baseCurrency()} either way.</small>
                 </div>
                 <div className="im-field">
                   <label>Cost price</label>

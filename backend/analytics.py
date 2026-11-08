@@ -8,10 +8,38 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 from calendar import monthrange
 
+from contextvars import ContextVar
+
 from fastapi import APIRouter, Depends
 from auth import require_auth, get_client
+from rates import rate as _live_rate, org_currency
 
-router = APIRouter()
+_base: ContextVar[str] = ContextVar("base_currency", default="USD")
+
+
+async def _set_base(user: dict = Depends(require_auth), client=Depends(get_client)):
+    """Remember the org's default currency for this request so money helpers can convert to it."""
+    _base.set(org_currency(client, user["org_id"]))
+
+
+router = APIRouter(dependencies=[Depends(_set_base)])
+
+
+def _fx(row: dict) -> float:
+    """Rate that turns a document's own-currency amounts into the default currency."""
+    return float(row.get("exchange_rate") or 1)
+
+
+def _b(row: dict, field: str = "total_amount") -> float:
+    return float(row.get(field) or 0) * _fx(row)
+
+
+def _pb(product: dict, field: str) -> float:
+    """A product's price in the default currency (products without a currency use it already)."""
+    price = float((product or {}).get(field) or 0)
+    cur = ((product or {}).get("currency") or _base.get()).upper()
+    r = _live_rate(cur, _base.get())
+    return price * (r if r is not None else 1)
 
 
 # ================================================================
@@ -99,7 +127,7 @@ async def get_summary(
 
     orders = (
         client.table("sales_orders")
-        .select("total_amount, subtotal, tax_amount, status, payment_status, order_date")
+        .select("exchange_rate, total_amount, subtotal, tax_amount, status, payment_status, order_date")
         .gte("order_date", start)
         .lte("order_date", end)
         .in_("status", ["dispatched", "delivered"])
@@ -107,11 +135,11 @@ async def get_summary(
     )
 
     order_data = orders.data or []
-    revenue    = sum(o["total_amount"] for o in order_data)
+    revenue    = sum(_b(o) for o in order_data)
 
     movements = (
         client.table("stock_movements")
-        .select("qty_change, products(cost_price)")
+        .select("qty_change, products(cost_price, currency)")
         .eq("movement_type", "sale")
         .gte("created_at", start)
         .lte("created_at", end + "T23:59:59")
@@ -119,7 +147,7 @@ async def get_summary(
     )
 
     cogs = sum(
-        abs(m["qty_change"]) * (m.get("products") or {}).get("cost_price", 0)
+        abs(m["qty_change"]) * _pb(m.get("products"), "cost_price")
         for m in (movements.data or [])
     )
 
@@ -136,13 +164,13 @@ async def get_summary(
 
     invoices = (
         client.table("invoices")
-        .select("total_amount, amount_paid, status, due_date")
+        .select("exchange_rate, total_amount, amount_paid, status, due_date")
         .neq("status", "void")
         .neq("status", "paid")
         .execute()
     )
     inv_data    = invoices.data or []
-    outstanding = sum(i["total_amount"] - i["amount_paid"] for i in inv_data)
+    outstanding = sum((i["total_amount"] - i["amount_paid"]) * _fx(i) for i in inv_data)
 
     today_str = str(date.today())
     overdue_count = sum(
@@ -152,12 +180,12 @@ async def get_summary(
 
     products = (
         client.table("products")
-        .select("cost_price, stock_levels(qty_on_hand)")
+        .select("cost_price, currency, stock_levels(qty_on_hand)")
         .eq("is_active", True)
         .execute()
     )
     stock_value = sum(
-        p["cost_price"] * (p.get("stock_levels") or {}).get("qty_on_hand", 0)
+        _pb(p, "cost_price") * (p.get("stock_levels") or {}).get("qty_on_hand", 0)
         for p in (products.data or [])
     )
 
@@ -166,13 +194,13 @@ async def get_summary(
     )
     prev_orders = (
         client.table("sales_orders")
-        .select("total_amount")
+        .select("exchange_rate, total_amount")
         .gte("order_date", prev_start)
         .lte("order_date", prev_end)
         .in_("status", ["dispatched", "delivered"])
         .execute()
     )
-    prev_revenue  = sum(o["total_amount"] for o in (prev_orders.data or []))
+    prev_revenue  = sum(_b(o) for o in (prev_orders.data or []))
     revenue_delta = round(
         ((revenue - prev_revenue) / prev_revenue * 100)
         if prev_revenue > 0 else 0, 1
@@ -215,17 +243,17 @@ async def revenue_trend(
     for m in months:
         orders = (
             client.table("sales_orders")
-            .select("total_amount, subtotal")
+            .select("exchange_rate, total_amount, subtotal")
             .gte("order_date", m["start"])
             .lte("order_date", m["end"])
             .in_("status", ["dispatched", "delivered"])
             .execute()
         )
-        revenue = sum(o["total_amount"] for o in (orders.data or []))
+        revenue = sum(_b(o) for o in (orders.data or []))
 
         movements = (
             client.table("stock_movements")
-            .select("qty_change, products(cost_price)")
+            .select("qty_change, products(cost_price, currency)")
             .eq("movement_type", "sale")
             .gte("created_at", m["start"])
             .lte("created_at", m["end"] + "T23:59:59")
@@ -272,7 +300,7 @@ async def top_products(
         client.table("stock_movements")
         .select(
             "product_id, qty_change, "
-            "products(id, name, sku, cost_price, selling_price)"
+            "products(id, name, sku, cost_price, selling_price, currency)"
         )
         .eq("movement_type", "sale")
         .gte("created_at", start)
@@ -297,8 +325,8 @@ async def top_products(
             }
 
         product_stats[pid]["units_sold"] += qty
-        product_stats[pid]["revenue"]    += qty * product.get("selling_price", 0)
-        product_stats[pid]["cogs"]       += qty * product.get("cost_price", 0)
+        product_stats[pid]["revenue"]    += qty * _pb(product, "selling_price")
+        product_stats[pid]["cogs"]       += qty * _pb(product, "cost_price")
 
     stats = list(product_stats.values())
     for s in stats:
@@ -338,7 +366,7 @@ async def top_customers(
     orders = (
         client.table("sales_orders")
         .select(
-            "customer_id, total_amount, "
+            "customer_id, exchange_rate, total_amount, "
             "customers(id, name)"
         )
         .gte("order_date", start)
@@ -361,7 +389,7 @@ async def top_customers(
             }
 
         customer_stats[cid]["order_count"] += 1
-        customer_stats[cid]["total_spend"] += o["total_amount"]
+        customer_stats[cid]["total_spend"] += _b(o)
 
     stats = list(customer_stats.values())
     for s in stats:
@@ -391,7 +419,7 @@ async def revenue_by_category(
         client.table("stock_movements")
         .select(
             "qty_change, "
-            "products(selling_price, categories(name))"
+            "products(selling_price, currency, categories(name))"
         )
         .eq("movement_type", "sale")
         .gte("created_at", start)
@@ -405,7 +433,7 @@ async def revenue_by_category(
     for m in (movements.data or []):
         product  = m.get("products") or {}
         category = (product.get("categories") or {}).get("name", "Uncategorised")
-        revenue  = abs(m["qty_change"]) * product.get("selling_price", 0)
+        revenue  = abs(m["qty_change"]) * _pb(product, "selling_price")
 
         category_revenue[category] = category_revenue.get(category, 0) + revenue
         total += revenue
@@ -446,14 +474,14 @@ async def stock_value_trend(
 
     products = (
         client.table("products")
-        .select("id, cost_price, stock_levels(qty_on_hand)")
+        .select("id, cost_price, currency, stock_levels(qty_on_hand)")
         .eq("is_active", True)
         .execute()
     )
 
     current_by_product = {
         p["id"]: {
-            "cost_price": p["cost_price"],
+            "cost_price": _pb(p, "cost_price"),
             "qty":        (p.get("stock_levels") or {}).get("qty_on_hand", 0),
         }
         for p in (products.data or [])
@@ -487,13 +515,13 @@ async def stock_value_trend(
 
             movements_since = (
                 client.table("stock_movements")
-                .select("product_id, qty_change, products(cost_price)")
+                .select("product_id, qty_change, products(cost_price, currency)")
                 .gte("created_at", since)
                 .execute()
             )
 
             adjustment = sum(
-                m["qty_change"] * (m.get("products") or {}).get("cost_price", 0)
+                m["qty_change"] * _pb(m.get("products"), "cost_price")
                 for m in (movements_since.data or [])
             )
             estimated_value = current_value - adjustment
@@ -528,38 +556,38 @@ async def financial_summary(
 
     orders = (
         client.table("sales_orders")
-        .select("total_amount, subtotal")
+        .select("exchange_rate, total_amount, subtotal")
         .gte("order_date", start)
         .lte("order_date", end)
         .in_("status", ["dispatched", "delivered"])
         .execute()
     )
-    revenue = sum(o["total_amount"] for o in (orders.data or []))
+    revenue = sum(_b(o) for o in (orders.data or []))
 
     movements = (
         client.table("stock_movements")
-        .select("qty_change, products(cost_price)")
+        .select("qty_change, products(cost_price, currency)")
         .eq("movement_type", "sale")
         .gte("created_at", start)
         .lte("created_at", end + "T23:59:59")
         .execute()
     )
     cogs = sum(
-        abs(m["qty_change"]) * (m.get("products") or {}).get("cost_price", 0)
+        abs(m["qty_change"]) * _pb(m.get("products"), "cost_price")
         for m in (movements.data or [])
     )
 
     invoices = (
         client.table("invoices")
-        .select("total_amount, amount_paid, due_date, status")
+        .select("exchange_rate, total_amount, amount_paid, due_date, status")
         .neq("status", "void")
         .neq("status", "paid")
         .execute()
     )
     inv_data    = invoices.data or []
-    outstanding = sum(i["total_amount"] - i["amount_paid"] for i in inv_data)
+    outstanding = sum((i["total_amount"] - i["amount_paid"]) * _fx(i) for i in inv_data)
     overdue_amt = sum(
-        i["total_amount"] - i["amount_paid"]
+        (i["total_amount"] - i["amount_paid"]) * _fx(i)
         for i in inv_data
         if i.get("due_date") and i["due_date"] < today_str
     )
@@ -570,13 +598,13 @@ async def financial_summary(
 
     pos = (
         client.table("purchase_orders")
-        .select("total_amount")
+        .select("exchange_rate, total_amount")
         .gte("order_date", start)
         .lte("order_date", end)
         .in_("status", ["received", "partial"])
         .execute()
     )
-    stock_purchased = sum(po["total_amount"] for po in (pos.data or []))
+    stock_purchased = sum(_b(po) for po in (pos.data or []))
     po_count        = len(pos.data or [])
 
     gross_profit = revenue - cogs

@@ -20,6 +20,7 @@ import Staff     from './pages/Staff';
 import StockMovements from './pages/StockMovements';
 import LowStock  from './pages/LowStock';
 import PurchaseOrders from './pages/PurchaseOrders';
+import { MoneyProvider } from './lib/MoneyProvider';
 import Delivery from './pages/Delivery';
 import Settings from './pages/Settings';
 
@@ -111,7 +112,7 @@ export default function AppShell() {
               <button className="im-btn-ghost" onClick={() => { setRoleError(null); setRoleTry(n => n + 1); }}>Retry</button>
             </div>
           )}
-          <PageComponent />
+          <MoneyProvider><PageComponent /></MoneyProvider>
         </main>
       </div>
     </div>

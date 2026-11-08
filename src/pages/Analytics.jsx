@@ -5,11 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useApi } from '../lib/api';
-
-function fmt(n) {
-  if (n == null) return '—';
-  return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { fmt } from '../lib/money';
 
 const PERIODS = [
   { key: 'this_month',    label: 'This month'    },

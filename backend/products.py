@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from rates import normalise_code
 from auth import require_auth, get_client
 
 router = APIRouter()
@@ -25,6 +26,7 @@ class ProductCreate(BaseModel):
     unit:          Optional[str] = "unit"
     cost_price:    float = 0
     selling_price: float = 0
+    currency:      Optional[str] = None
     tax_rate:      Optional[float] = None
     reorder_point: int = 0
     reorder_qty:   int = 0
@@ -40,6 +42,7 @@ class ProductUpdate(BaseModel):
     unit:          Optional[str] = None
     cost_price:    Optional[float] = None
     selling_price: Optional[float] = None
+    currency:      Optional[str] = None
     tax_rate:      Optional[float] = None
     reorder_point: Optional[int] = None
     reorder_qty:   Optional[int] = None
@@ -177,6 +180,7 @@ async def create_product(
     Both inserts go through the tenant-scoped client, which stamps org_id.
     """
     org_id = user["org_id"]
+    body.currency = normalise_code(body.currency)
 
     # Check SKU is unique within org
     existing = (
@@ -224,6 +228,7 @@ async def update_product(
     client       = Depends(get_client),
 ):
     """Update product fields. Partial update — only provided fields are changed."""
+    body.currency = normalise_code(body.currency)
     updates = body.model_dump(exclude_none=True)
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")

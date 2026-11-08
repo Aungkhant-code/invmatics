@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/react';
 import { useApi } from '../lib/api';
+import { baseCurrency } from '../lib/money';
 import { readCache, writeCache } from '../lib/cache';
 import { Icon, ICONS } from '../shell/Icon';
 
-function fmt(n, currency = '$') {
+function fmt(n, currency = baseCurrency()) {
   if (n === null || n === undefined) return '—';
-  if (n >= 1_000_000) return `${currency}${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${currency}${(n / 1_000).toFixed(1)}k`;
-  return `${currency}${Number(n).toFixed(2)}`;
+  if (n >= 1_000_000) return `${currency} ${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `${currency} ${(n / 1_000).toFixed(1)}k`;
+  return `${currency} ${Number(n).toFixed(2)}`;
 }
 
 function StatCard({ label, value, delta, deltaType, sub, icon, color, loading }) {

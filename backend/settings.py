@@ -51,7 +51,7 @@ class OrganisationUpdate(BaseModel):
     website:           Optional[str] = Field(None, max_length=200)
     address:           Optional[str] = Field(None, max_length=500)
     country:           Optional[str] = Field(None, max_length=2)
-    currency:          Optional[str] = Field(None, max_length=3)
+    currency:          Optional[str] = Field(None, max_length=10)
     timezone:          Optional[str] = Field(None, max_length=60)
     bank_name:         Optional[str] = Field(None, max_length=100)
     bank_account_no:   Optional[str] = Field(None, max_length=50)
@@ -66,6 +66,20 @@ class OrganisationUpdate(BaseModel):
     @classmethod
     def _upper(cls, v):
         return v.upper() if v else v
+
+    @field_validator("currency")
+    @classmethod
+    def _currency(cls, v):
+        if v and not re.match(r"^[A-Z0-9]{2,10}$", v):
+            raise ValueError("Currency must be 2–10 letters or digits (e.g. THB)")
+        return v
+
+    @field_validator("timezone")
+    @classmethod
+    def _tz(cls, v):
+        if v and not re.match(r"^[A-Za-z][A-Za-z0-9_+\-]*(/[A-Za-z0-9_+\-]+){0,2}$", v):
+            raise ValueError("Pick a timezone like Asia/Bangkok")
+        return v
 
     @field_validator("email")
     @classmethod

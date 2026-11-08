@@ -23,6 +23,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
 from database import db_admin
+from rates import normalise_code, resolve_rate, rate as live_rate, org_currency
 from auth import require_auth, get_client, db_user_id
 from models import (
     SalesOrderCreate, SalesOrderUpdate,
@@ -68,12 +69,25 @@ def _get_product(client, product_id: str) -> dict:
     """Fetch a product or raise 404."""
     product = _first(
         client.table("products")
-        .select("id, name, selling_price, cost_price, tax_rate")
+        .select("id, name, selling_price, cost_price, tax_rate, currency")
         .eq("id", product_id)
     )
     if not product:
         raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
     return product
+
+
+def _price_in(product: dict, field: str, order_cur: str, base_cur: str) -> float:
+    """A product's price expressed in the order's currency (products default to the org currency)."""
+    price = float(product[field] or 0)
+    pc = (product.get("currency") or base_cur).upper()
+    if pc == order_cur:
+        return price
+    r = live_rate(pc, order_cur)
+    if r is None:
+        raise HTTPException(status_code=400,
+            detail=f"No live rate to convert {product['name']} from {pc} to {order_cur} — enter the price yourself")
+    return round(price * r, 4)
 
 
 # ================================================================
@@ -157,20 +171,25 @@ async def create_sales_order(
 
     order_number = _next_number(org_id, "SO")
 
+    base_cur  = org_currency(client, org_id)
+    order_cur = normalise_code(body.currency) or base_cur
+    fx        = resolve_rate(order_cur, base_cur, body.exchange_rate)
+
     # Resolve line items
     resolved_items = []
     for item in body.items:
         product = _get_product(client, str(item.product_id))
+        default_price = _price_in(product, "selling_price", order_cur, base_cur) if item.unit_price is None else None
         resolved_items.append({
             "product_id":     str(item.product_id),
             "description":    item.description or product["name"],
             "qty_ordered":    item.qty,
             "qty_dispatched": 0,
-            "unit_price":     item.unit_price or product["selling_price"],
+            "unit_price":     item.unit_price if item.unit_price is not None else default_price,
             "tax_rate":       item.tax_rate,
             "discount_pct":   item.discount_pct,
             "line_total":     round(
-                item.qty * (item.unit_price or product["selling_price"]) *
+                item.qty * (item.unit_price if item.unit_price is not None else default_price) *
                 (1 - item.discount_pct / 100), 2
             ),
         })
@@ -192,6 +211,8 @@ async def create_sales_order(
         "customer_ref":  body.customer_ref,
         "notes":         body.notes,
         "internal_notes":body.internal_notes,
+        "currency":      order_cur,
+        "exchange_rate": fx,
         **totals,
     }
 
@@ -413,15 +434,20 @@ async def create_purchase_order(
 
     po_number = _next_number(org_id, "PO")
 
+    base_cur  = org_currency(client, org_id)
+    order_cur = normalise_code(body.currency) or base_cur
+    fx        = resolve_rate(order_cur, base_cur, body.exchange_rate)
+
     resolved_items = []
     for item in body.items:
         product = _get_product(client, str(item.product_id))
+        cost = item.unit_price if item.unit_price is not None else _price_in(product, "cost_price", order_cur, base_cur)
         resolved_items.append({
             "product_id":  str(item.product_id),
             "qty_ordered": item.qty,
             "qty_received":0,
-            "unit_cost":   item.unit_price or product["cost_price"],
-            "line_total":  round(item.qty * (item.unit_price or product["cost_price"]), 2),
+            "unit_cost":   cost,
+            "line_total":  round(item.qty * cost, 2),
         })
 
     subtotal = sum(i["line_total"] for i in resolved_items)
@@ -439,6 +465,8 @@ async def create_purchase_order(
         "tax_amount":        0,
         "total_amount":      round(subtotal, 2),
         "notes":             body.notes,
+        "currency":          order_cur,
+        "exchange_rate":     fx,
     }
 
     po_result = db_admin.table("purchase_orders").insert(po_data).execute()

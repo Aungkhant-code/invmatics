@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
+import { fmt } from '../lib/money';
 
 const MOVEMENT_TYPES = ['adjustment', 'damage', 'theft', 'return', 'write_off'];
 
@@ -18,11 +19,6 @@ const TYPE_CLS = {
   sale: 'out', receive: 'ok', adjustment: 'info',
   damage: 'out', theft: 'out', return: 'ok', write_off: 'out',
 };
-
-function fmt(n) {
-  if (n == null) return '—';
-  return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 export default function Inventory() {
   const api = useApi();

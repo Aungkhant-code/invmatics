@@ -5,11 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
-
-function fmt(n) {
-  if (n == null) return '—';
-  return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { fmtDoc } from '../lib/money';
 
 const STATUS_TABS = ['all', 'draft', 'sent', 'paid', 'overdue', 'void'];
 
@@ -149,7 +145,7 @@ export default function Invoices() {
                   <span className={`im-status-badge ${STATUS_CLS[inv.status] || 'muted'}`}>{inv.status}</span>
                 </div>
                 <div className="im-list-sub">
-                  {inv.customers?.name} · {fmt(inv.total_amount)} · Due {inv.due_date}
+                  {inv.customers?.name} · {fmtDoc(inv.total_amount, inv)} · Due {inv.due_date}
                 </div>
               </div>
             ))}
@@ -203,11 +199,11 @@ export default function Invoices() {
                     {selected.due_date}
                   </strong>
                 </div>
-                <div className="im-detail-field"><span>Total</span><strong>{fmt(selected.total_amount)}</strong></div>
-                <div className="im-detail-field"><span>Paid</span><strong style={{ color: 'var(--green)' }}>{fmt(selected.amount_paid)}</strong></div>
+                <div className="im-detail-field"><span>Total</span><strong>{fmtDoc(selected.total_amount, selected)}</strong></div>
+                <div className="im-detail-field"><span>Paid</span><strong style={{ color: 'var(--green)' }}>{fmtDoc(selected.amount_paid, selected)}</strong></div>
                 <div className="im-detail-field"><span>Balance due</span>
                   <strong style={{ color: selected.total_amount - selected.amount_paid > 0 ? 'var(--orange)' : 'var(--green)' }}>
-                    {fmt(selected.total_amount - selected.amount_paid)}
+                    {fmtDoc(selected.total_amount - selected.amount_paid, selected)}
                   </strong>
                 </div>
               </div>
@@ -223,7 +219,7 @@ export default function Invoices() {
                           <td>{p.paid_at}</td>
                           <td>{(p.payment_method || '—').replace('_', ' ')}</td>
                           <td>{p.reference || '—'}</td>
-                          <td className="num">{fmt(p.amount)}</td>
+                          <td className="num">{fmtDoc(p.amount, selected)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -241,17 +237,17 @@ export default function Invoices() {
                         <tr key={i}>
                           <td>{item.description}</td>
                           <td className="num">{item.qty}</td>
-                          <td className="num">{fmt(item.unit_price)}</td>
-                          <td className="num">{fmt(item.line_total)}</td>
+                          <td className="num">{fmtDoc(item.unit_price, selected)}</td>
+                          <td className="num">{fmtDoc(item.line_total, selected)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                   <div style={{ padding: '12px 16px', textAlign: 'right' }}>
                     <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>
-                      Subtotal: {fmt(selected.subtotal)} · VAT ({selected.tax_rate}%): {fmt(selected.tax_amount)}
+                      Subtotal: {fmtDoc(selected.subtotal, selected)} · VAT ({selected.tax_rate}%): {fmtDoc(selected.tax_amount, selected)}
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 800 }}>Total: {fmt(selected.total_amount)}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800 }}>Total: {fmtDoc(selected.total_amount, selected)}</div>
                   </div>
                 </>
               )}

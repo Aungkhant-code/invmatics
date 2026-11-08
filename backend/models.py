@@ -208,6 +208,7 @@ class ProductCreate(BaseModel):
     unit:          str = "unit"
     cost_price:    float = 0
     selling_price: float = 0
+    currency:      Optional[str] = None
     tax_rate:      Optional[float] = None
     reorder_point: int = 0
     reorder_qty:   int = 0
@@ -321,6 +322,8 @@ class SalesOrderCreate(BaseModel):
     customer_ref:   Optional[str] = None
     notes:          Optional[str] = None
     internal_notes: Optional[str] = None
+    currency:       Optional[str] = None
+    exchange_rate:  Optional[float] = None
     items:          List[LineItem]
 
 
@@ -363,6 +366,8 @@ class PurchaseOrderCreate(BaseModel):
     order_date:       date = None
     expected_delivery:Optional[date] = None
     notes:            Optional[str] = None
+    currency:         Optional[str] = None
+    exchange_rate:    Optional[float] = None
     items:            List[LineItem]
 
 

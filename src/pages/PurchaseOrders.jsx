@@ -5,17 +5,14 @@
 
 import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
-
-function fmt(n) {
-  if (n == null) return '—';
-  return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { fmt, fmtDoc, baseCurrency, priceIn, effectiveRate } from '../lib/money';
+import OrderCurrency from '../components/shared/OrderCurrency';
 
 const STATUS_TABS = ['all', 'draft', 'sent', 'partial', 'received', 'cancelled'];
 const STATUS_CLS = { draft: 'muted', sent: 'info', partial: 'warn', received: 'ok', cancelled: 'out' };
 
 const EMPTY_LINE = { product_id: '', qty: '1', unit_price: '' };
-const EMPTY_FORM = { supplier_id: '', expected_delivery: '', notes: '', lines: [] };
+const EMPTY_FORM = { supplier_id: '', expected_delivery: '', notes: '', currency: '', exchange_rate: '', lines: [] };
 
 export default function PurchaseOrders() {
   const api = useApi();
@@ -81,8 +78,17 @@ export default function PurchaseOrders() {
 
   const pickProduct = (i, id) => {
     const p = products.find(x => x.id === id);
-    setLine(i, { product_id: id, unit_price: p ? String(p.cost_price) : '' });
+    setLine(i, { product_id: id, unit_price: p ? priceIn(p.cost_price, p.currency, form.currency) : '' });
   };
+
+  const changeCurrency = (cur) => setForm(f => ({
+    ...f, currency: cur, exchange_rate: '',
+    lines: f.lines.map(l => {
+      const p = products.find(x => x.id === l.product_id);
+      return p ? { ...l, unit_price: priceIn(p.cost_price, p.currency, cur) } : l;
+    }),
+  }));
+  const orderCur = form.currency || baseCurrency();
 
   const validLines = form.lines.filter(l => l.product_id && Number(l.qty) > 0);
   const total = validLines.reduce((n, l) => n + Number(l.qty) * (Number(l.unit_price) || 0), 0);
@@ -92,6 +98,8 @@ export default function PurchaseOrders() {
       supplier_id:       form.supplier_id,
       expected_delivery: form.expected_delivery || null,
       notes:             form.notes || null,
+      currency:          orderCur,
+      exchange_rate:     orderCur === baseCurrency() ? null : (parseFloat(form.exchange_rate) || null),
       items: validLines.map(l => ({
         product_id: l.product_id,
         qty:        parseInt(l.qty),
@@ -163,7 +171,7 @@ export default function PurchaseOrders() {
                   <span className={`im-status-badge ${STATUS_CLS[po.status] || 'muted'}`}>{po.status}</span>
                 </div>
                 <div className="im-list-sub">
-                  {po.suppliers?.name} · {fmt(po.total_amount)} · {po.order_date}
+                  {po.suppliers?.name} · {fmtDoc(po.total_amount, po)} · {po.order_date}
                 </div>
               </div>
             ))}
@@ -227,14 +235,14 @@ export default function PurchaseOrders() {
                           </td>
                           <td className="num">{i.qty_ordered}</td>
                           <td className="num">{i.qty_received}</td>
-                          <td className="num">{fmt(i.unit_cost)}</td>
-                          <td className="num">{fmt(i.line_total)}</td>
+                          <td className="num">{fmtDoc(i.unit_cost, selected)}</td>
+                          <td className="num">{fmtDoc(i.line_total, selected)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                   <div style={{ padding: '12px 16px', textAlign: 'right', fontSize: 18, fontWeight: 800 }}>
-                    Total: {fmt(selected.total_amount)}
+                    Total: {fmtDoc(selected.total_amount, selected)}
                   </div>
                 </>
               )}
@@ -266,6 +274,8 @@ export default function PurchaseOrders() {
                   <input type="date" value={form.expected_delivery}
                     onChange={e => setForm(f => ({ ...f, expected_delivery: e.target.value }))} />
                 </div>
+                <OrderCurrency id="im-cur-po" currency={form.currency} rate={form.exchange_rate}
+                  onCurrency={changeCurrency} onRate={v => setForm(f => ({ ...f, exchange_rate: v }))} />
                 <div className="im-field">
                   <label>Notes</label>
                   <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
@@ -288,7 +298,7 @@ export default function PurchaseOrders() {
                       onChange={e => setLine(i, { qty: e.target.value })} />
                     <input type="number" min="0" step="0.01" value={l.unit_price} aria-label="Unit cost"
                       placeholder="0.00" onChange={e => setLine(i, { unit_price: e.target.value })} />
-                    <div className="im-line-total">{fmt((Number(l.qty) || 0) * (Number(l.unit_price) || 0))}</div>
+                    <div className="im-line-total">{fmt((Number(l.qty) || 0) * (Number(l.unit_price) || 0), orderCur)}</div>
                     <button className="im-line-remove" title="Remove line" aria-label="Remove line"
                       disabled={form.lines.length === 1}
                       onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, j) => j !== i) }))}>✕</button>
@@ -298,7 +308,7 @@ export default function PurchaseOrders() {
                   <button className="im-btn-ghost" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>
                     + Add line
                   </button>
-                  <div className="im-lines-total"><span>Total</span>{fmt(total)}</div>
+                  <div className="im-lines-total"><span>Total</span>{fmt(total, orderCur)}{orderCur !== baseCurrency() && effectiveRate(orderCur, form.exchange_rate) ? ` ≈ ${fmt(total * effectiveRate(orderCur, form.exchange_rate))}` : ''}</div>
                 </div>
               </div>
             </div>

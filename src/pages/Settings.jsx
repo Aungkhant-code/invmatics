@@ -5,6 +5,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useApi } from '../lib/api';
+import { useMoney } from '../lib/money';
+import { CurrencyInput, TimezoneInput } from '../components/shared/Pickers';
 
 const SECTIONS = [
   { key: 'company',       label: 'Company profile' },
@@ -17,11 +19,6 @@ const COUNTRIES = [
   ['TH', 'Thailand'], ['SG', 'Singapore'], ['MY', 'Malaysia'], ['ID', 'Indonesia'],
   ['VN', 'Vietnam'], ['PH', 'Philippines'], ['MM', 'Myanmar'], ['KH', 'Cambodia'],
   ['LA', 'Laos'], ['NZ', 'New Zealand'], ['AU', 'Australia'], ['US', 'United States'],
-];
-const CURRENCIES = ['THB', 'USD', 'SGD', 'MYR', 'IDR', 'VND', 'PHP', 'MMK', 'KHR', 'NZD', 'AUD'];
-const TIMEZONES = [
-  'Asia/Bangkok', 'Asia/Singapore', 'Asia/Kuala_Lumpur', 'Asia/Jakarta', 'Asia/Ho_Chi_Minh',
-  'Asia/Manila', 'Asia/Yangon', 'Pacific/Auckland', 'Australia/Sydney', 'UTC',
 ];
 
 const ALERTS = [
@@ -82,6 +79,7 @@ function fileToLogo(file) {
 
 export default function Settings() {
   const api = useApi();
+  const money = useMoney();
 
   const [data,    setData]    = useState(null);      // last saved values from the server
   const [draft,   setDraft]   = useState(null);      // what the form currently shows
@@ -148,6 +146,7 @@ export default function Settings() {
       setData({ ...d, form: f });
       setDraft(f);
       setNotice('Saved');
+      if (section === 'company') money.reload();   // currency / timezone may have changed
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };
@@ -271,8 +270,15 @@ export default function Settings() {
               {text('address', 'Address', {}, true)}
               {select('country', 'Country', withCurrent(COUNTRIES.map(c => c[0]), draft.company.country).map(
                 code => COUNTRIES.find(c => c[0] === code) || [code, code]))}
-              {select('currency', 'Currency', withCurrent(CURRENCIES, draft.company.currency))}
-              {select('timezone', 'Timezone', withCurrent(TIMEZONES, draft.company.timezone))}
+              <div className="im-field">
+                <label>Default currency</label>
+                <CurrencyInput value={draft.company.currency} disabled={!canEdit} onChange={v => set('currency', v)} />
+                <small style={{ color: 'var(--text-muted)' }}>Pick one or type your own. Everything is shown in this currency.</small>
+              </div>
+              <div className="im-field">
+                <label>Timezone</label>
+                <TimezoneInput value={draft.company.timezone} disabled={!canEdit} onChange={v => set('timezone', v)} />
+              </div>
             </div>
           )}
 

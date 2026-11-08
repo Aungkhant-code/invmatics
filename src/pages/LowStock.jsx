@@ -5,11 +5,10 @@
 
 import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
+import { fmt, convert } from '../lib/money';
 
-function fmt(n) {
-  if (n == null) return '—';
-  return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+// cost in the default currency (the product may be priced in another one)
+const costBase = (p) => convert(p.cost_price || 0, p.currency) ?? (p.cost_price || 0);
 
 const SECTIONS = [
   { key: 'critical', title: 'Critical',         desc: 'At or below 50% of reorder point', cls: 'out'  },
@@ -50,7 +49,7 @@ export default function LowStock() {
     setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
 
   const chosen = selected.map(id => byId[id]).filter(Boolean);
-  const chosenCost = chosen.reduce((n, p) => n + qtyFor(p) * (p.cost_price || 0), 0);
+  const chosenCost = chosen.reduce((n, p) => n + qtyFor(p) * costBase(p), 0);
 
   const createOrders = async () => {
     setCreating(true);
@@ -65,7 +64,7 @@ export default function LowStock() {
           supplier_id,
           notes: 'Created from Low Stock',
           items: items.map(p => ({
-            product_id: p.id, qty: qtyFor(p), unit_price: p.cost_price || 0,
+            product_id: p.id, qty: qtyFor(p), unit_price: Math.round(costBase(p) * 100) / 100,
           })),
         });
         made.push(po.po_number);
@@ -164,7 +163,7 @@ export default function LowStock() {
                             value={qtys[p.id] ?? p.reorder_qty}
                             onChange={e => setQtys(q => ({ ...q, [p.id]: e.target.value }))} />
                         </td>
-                        <td className="num">{fmt(qtyFor(p) * (p.cost_price || 0))}</td>
+                        <td className="num">{fmt(qtyFor(p) * costBase(p))}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -14,7 +14,15 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from database import db_admin
 from auth import require_auth, get_client, db_user_id
+from rates import rate as _rate, org_currency
 from models import StockAdjustment
+
+
+def _cost_base(p: dict, base: str) -> float:
+    """A product's cost price in the org's default currency."""
+    cur = (p.get("currency") or base).upper()
+    r = _rate(cur, base)
+    return float(p.get("cost_price") or 0) * (r if r is not None else 1)
 
 router = APIRouter()
 
@@ -49,7 +57,7 @@ async def list_stock_levels(
         client.table("products")
         .select(
             "id, name, sku, barcode, reorder_point, reorder_qty, unit, "
-            "cost_price, selling_price, "
+            "cost_price, selling_price, currency, "
             "stock_levels(qty_on_hand, qty_reserved, qty_on_order), "
             "categories(name), "
             "suppliers(name, lead_days)"
@@ -73,6 +81,7 @@ async def list_stock_levels(
     products = result.data or []
 
     # Attach computed fields
+    base = org_currency(client, user["org_id"])
     for p in products:
         sl = p.get("stock_levels") or {}
         qty = sl.get("qty_on_hand", 0)
@@ -80,7 +89,7 @@ async def list_stock_levels(
         p["qty_reserved"]   = sl.get("qty_reserved", 0)
         p["qty_on_order"]   = sl.get("qty_on_order", 0)
         p["qty_available"]  = max(0, qty - sl.get("qty_reserved", 0))
-        p["stock_value"]    = round(qty * p["cost_price"], 2)
+        p["stock_value"]    = round(qty * _cost_base(p, base), 2)
         p["is_low_stock"]   = qty <= p["reorder_point"]
         p["is_out_of_stock"] = qty == 0
 
@@ -370,7 +379,7 @@ async def low_stock_summary(
     result = (
         client.table("products")
         .select(
-            "id, name, sku, supplier_id, reorder_point, reorder_qty, cost_price, "
+            "id, name, sku, supplier_id, reorder_point, reorder_qty, cost_price, currency, "
             "stock_levels(qty_on_hand, qty_on_order), "
             "suppliers(name, lead_days)"
         )
@@ -386,6 +395,7 @@ async def low_stock_summary(
 
     from datetime import datetime, timedelta
 
+    base = org_currency(client, user["org_id"])
     for p in products:
         sl  = p.get("stock_levels") or {}
         qty = sl.get("qty_on_hand", 0)
@@ -402,7 +412,7 @@ async def low_stock_summary(
             **p,
             "qty_on_hand":      qty,
             "qty_on_order":     sl.get("qty_on_order", 0),
-            "est_reorder_cost": round(p["reorder_qty"] * p["cost_price"], 2),
+            "est_reorder_cost": round(p["reorder_qty"] * _cost_base(p, base), 2),
             "est_arrival":      est_arrival,
             "stock_pct":        round((qty / rop * 100) if rop > 0 else 0, 1),
         }
@@ -440,14 +450,15 @@ async def stock_value_trend(
     """
     result = (
         client.table("products")
-        .select("cost_price, stock_levels(qty_on_hand)")
+        .select("cost_price, currency, stock_levels(qty_on_hand)")
         .eq("is_active", True)
         .execute()
     )
 
     products = result.data or []
+    base = org_currency(client, user["org_id"])
     total_value = sum(
-        p["cost_price"] * (p.get("stock_levels") or {}).get("qty_on_hand", 0)
+        _cost_base(p, base) * (p.get("stock_levels") or {}).get("qty_on_hand", 0)
         for p in products
     )
 
