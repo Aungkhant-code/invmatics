@@ -283,14 +283,17 @@ export default function Delivery() {
                 <div className="im-field"><label>Delivery date</label>
                   <input type="date" value={edit.delivery_date} onChange={e => setEdit(p => ({ ...p, delivery_date: e.target.value }))} /></div>
               </div>
-              <div className="im-detail-section-title" style={{ paddingLeft: 0 }}>Quantity to deliver</div>
-              {edit.items.map((it, idx) => (
-                <div key={it.id} style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontSize: 13 }}>{it.description} <small style={{ color: 'var(--text-muted)' }}>of {it.ordered} ordered</small></span>
-                  <input type="number" min="0" max={it.ordered} value={it.qty}
-                    onChange={e => setEdit(p => ({ ...p, items: p.items.map((x, j) => j === idx ? { ...x, qty: e.target.value } : x) }))} />
-                </div>
-              ))}
+              <div className="im-section-label">Quantity to deliver</div>
+              <div className="im-dl qty-only">
+                <div className="im-dl-head"><span>Item</span><span>Qty</span></div>
+                {edit.items.map((it, idx) => (
+                  <div className="im-dl-row" key={it.id}>
+                    <div className="im-dl-name">{it.description}<small>{it.ordered} ordered</small></div>
+                    <input type="number" min="0" max={it.ordered} value={it.qty} aria-label="Quantity to deliver"
+                      onChange={e => setEdit(p => ({ ...p, items: p.items.map((x, j) => j === idx ? { ...x, qty: e.target.value } : x) }))} />
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="im-modal-footer">
               <button className="im-btn-ghost" onClick={() => setEdit(null)}>Cancel</button>
@@ -315,13 +318,15 @@ export default function Delivery() {
                     onChange={e => setProof(p => ({ ...p, received_by: e.target.value }))} />
                 </div>
               </div>
-              <div className="im-lines" style={{ marginTop: 12 }}>
+              <div className="im-section-label">Items received</div>
+              <div className="im-dl">
+                <div className="im-dl-head"><span>Item</span><span>Qty</span><span>Condition</span></div>
                 {proof.items.map((it, idx) => (
-                  <div key={it.item_id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 110px', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: 13 }}>{it.description} <small style={{ color: 'var(--text-muted)' }}>/ {it.ordered}</small></span>
-                    <input type="number" min="0" max={it.ordered} value={it.qty_received}
+                  <div className="im-dl-row" key={it.item_id}>
+                    <div className="im-dl-name">{it.description}<small>{it.ordered} to deliver</small></div>
+                    <input type="number" min="0" max={it.ordered} value={it.qty_received} aria-label="Quantity received"
                       onChange={e => setProof(p => ({ ...p, items: p.items.map((x, j) => j === idx ? { ...x, qty_received: e.target.value } : x) }))} />
-                    <select value={it.condition}
+                    <select value={it.condition} aria-label="Condition"
                       onChange={e => setProof(p => ({ ...p, items: p.items.map((x, j) => j === idx ? { ...x, condition: e.target.value } : x) }))}>
                       <option>Good</option><option>Damaged</option><option>Short</option>
                     </select>
