@@ -271,6 +271,7 @@ def provision_user(
         except Exception:
             unsafe_metadata = {}
     code = (unsafe_metadata or {}).get("join_code")
+    print(f"provision {clerk_user_id}: join_code present={bool(code)}")
     if code:
         try:
             joined = redeem_access_code(code, clerk_user_id, email, full_name)
