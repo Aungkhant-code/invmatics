@@ -195,12 +195,30 @@ async def invite(
     if already:
         raise HTTPException(status_code=409, detail="That person is already on your team")
 
-    r = _clerk("POST", "/invitations", json={
-        "email_address":   email,
-        "public_metadata": {"org_id": str(user["org_id"]), "role": body.role},
-        "redirect_url":    f"{FRONTEND_URL.rstrip('/')}/sign-up",
-        "notify":          True,
-    })
+    def _send():
+        return _clerk("POST", "/invitations", json={
+            "email_address":   email,
+            "public_metadata": {"org_id": str(user["org_id"]), "role": body.role},
+            "redirect_url":    f"{FRONTEND_URL.rstrip('/')}/sign-up",
+            "notify":          True,
+        })
+
+    r = _send()
+    if r.status_code == 422 and "pending" in r.text.lower():
+        # A stale pending invite for this email blocks a new one. Replace it when it is
+        # ours (or its organisation no longer exists); never touch another org's invite.
+        lst = _clerk("GET", "/invitations", params={"status": "pending", "limit": 100})
+        if lst.status_code == 200:
+            payload = lst.json()
+            for i in (payload if isinstance(payload, list) else payload.get("data", [])):
+                if (i.get("email_address") or "").lower() != email:
+                    continue
+                oid = (i.get("public_metadata") or {}).get("org_id")
+                mine = str(oid) == str(user["org_id"])
+                gone = bool(oid) and not db_admin.table("organisations").select("id").eq("id", str(oid)).limit(1).execute().data
+                if mine or gone or not oid:
+                    _clerk("POST", f"/invitations/{i['id']}/revoke")
+            r = _send()
     if r.status_code not in (200, 201):
         msg = ""
         try:
