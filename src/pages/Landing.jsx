@@ -609,9 +609,9 @@ function Footer() {
           </div>
           <ul className="lp-footer-links">
             <li><a href="#">Features</a></li>
-            <li><a href="#">Pricing</a></li>
-            <li><a href="#">Privacy</a></li>
-            <li><a href="#">Terms</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="/privacy">Privacy</a></li>
+            <li><a href="/terms">Terms</a></li>
           </ul>
           <div className="lp-footer-right">
             <span className="lp-footer-copy">© 2026 Invmatics</span>

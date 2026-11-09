@@ -4,6 +4,7 @@ import Landing    from './pages/Landing';
 import SignInPage from './pages/SignInPage';
 import SignUpPage from './pages/SignUpPage';
 import AppShell   from './AppShell';
+import Legal      from './pages/Legal';
 
 function LoadingScreen() {
   // Same markup as the static splash in index.html, so there is no flash between them.
@@ -36,6 +37,10 @@ export default function App() {
       window.location.href = '/app';
     }
   }, [isLoaded, isSignedIn, path]);
+
+  // Public legal pages: no need to wait for sign-in to load
+  if (path === '/privacy' || path === '/privacy/') return <Legal kind="privacy" />;
+  if (path === '/terms' || path === '/terms/') return <Legal kind="terms" />;
 
   if (!isLoaded) return <LoadingScreen />;
 
