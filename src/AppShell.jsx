@@ -132,19 +132,6 @@ export default function AppShell() {
     return () => { cancelled = true; };
   }, [api, page]);
 
-  // Came from a pricing button: send the new admin straight to checkout for that plan.
-  useEffect(() => {
-    if (role === null || !bill) return;
-    let choice = null;
-    try { choice = JSON.parse(localStorage.getItem('im_plan_choice') || 'null'); } catch { /* ignore */ }
-    if (!choice) return;
-    try { localStorage.removeItem('im_plan_choice'); } catch { /* ignore */ }
-    if (role !== 'admin' || bill.has_subscription || !bill.payments_ready) return;
-    api.post('/billing/checkout', choice)
-      .then(r => { window.location.href = r.url; })
-      .catch(() => setPage('billing'));
-  }, [api, role, bill]);
-
   // On phones the detail panel stacks under the list: bring it into view when a row is tapped.
   useEffect(() => {
     const onClick = (e) => {

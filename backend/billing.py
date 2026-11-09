@@ -109,11 +109,8 @@ async def checkout(body: CheckoutBody, user: dict = Depends(require_auth)):
         "subscription_data[metadata][org_id]": org_id,
         "subscription_data[metadata][plan]": body.plan,
     }
-    # Free trial: 14 days monthly, 60 days (2 months) yearly. Only for an organisation that has
-    # never subscribed and whose in-app trial hasn't already run out. Set here, so the Stripe
-    # prices themselves should have NO trial configured.
-    if not org.get("stripe_customer_id") and not b["locked"]:
-        form["subscription_data[trial_period_days]"] = "60" if body.interval == "yearly" else "14"
+    # No trial is set here: the 14-day trial is the in-app one (no card). Stripe prices
+    # should have NO trial configured, so subscribing charges straight away.
     if org.get("stripe_customer_id"):
         form["customer"] = org["stripe_customer_id"]
     else:

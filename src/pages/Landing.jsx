@@ -559,7 +559,7 @@ function Pricing() {
                   ))}
                 </ul>
                 <a
-                  href={`/sign-up?plan=${plan.name.toLowerCase()}&interval=${annual ? 'yearly' : 'monthly'}`}
+                  href="/sign-up"
                   className={`lp-pricing-cta${plan.featured ? ' primary' : ' outline'}`}
                 >
                   Start free trial
@@ -569,7 +569,7 @@ function Pricing() {
           })}
         </div>
         <p className="lp-pricing-note">
-          Prices in USD. Thai Baht pricing available. Free trial on every plan: 14 days on monthly, 2 months on annual.
+          Prices in USD. Thai Baht pricing available. Every plan starts with a 14-day free trial. No card required.
         </p>
       </div>
     </section>

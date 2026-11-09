@@ -107,11 +107,6 @@ export default function Billing() {
                     {usd(price)}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>/{annual ? 'year' : 'month'}</span>
                   </div>
                   <p style={{ fontSize: 13, color: 'var(--text-muted)', minHeight: 54 }}>{p.blurb}</p>
-                  {(!b.has_customer && !b.locked) && (
-                    <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--green)' }}>
-                      {annual ? '2-month free trial' : '14-day free trial'}, then billed
-                    </p>
-                  )}
                   {current ? (
                     <button className="im-btn-ghost" disabled>Current plan</button>
                   ) : canBuy ? (

@@ -11,18 +11,7 @@ import { SignUp } from '@clerk/react';
 import AuthLayout from './AuthLayout';
 import { CLERK_APPEARANCE } from '../lib/clerkAppearance';
 
-function rememberPlanChoice() {
-  try {
-    const q = new URLSearchParams(window.location.search);
-    const plan = q.get('plan'), interval = q.get('interval');
-    if (['starter', 'growth', 'business'].includes(plan) && ['monthly', 'yearly'].includes(interval)) {
-      localStorage.setItem('im_plan_choice', JSON.stringify({ plan, interval }));
-    }
-  } catch { /* ignore */ }
-}
-
 export default function SignUpPage() {
-  useState(rememberPlanChoice);
   const [code, setCode] = useState(() => {
     try {
       const q = new URLSearchParams(window.location.search).get('code');
