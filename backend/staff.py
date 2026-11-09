@@ -229,18 +229,18 @@ async def invite(
     if r.status_code not in (200, 201) and "pending" in r.text.lower():
         # A stale pending invite for this email blocks a new one. Replace it when it is
         # ours (or its organisation no longer exists); never touch another org's invite.
-        lst = _clerk("GET", "/invitations", params={"status": "pending", "limit": 100})
+        lst = _clerk("GET", "/invitations", params={"status": "pending", "limit": 500})
+        print(f"invite: pending list http={lst.status_code}")
         if lst.status_code == 200:
             payload = lst.json()
-            for i in (payload if isinstance(payload, list) else payload.get("data", [])):
-                if (i.get("email_address") or "").lower() != email:
-                    continue
-                oid = (i.get("public_metadata") or {}).get("org_id")
-                mine = str(oid) == str(user["org_id"])
-                gone = bool(oid) and not db_admin.table("organisations").select("id").eq("id", str(oid)).limit(1).execute().data
-                if mine or gone or not oid:
-                    _clerk("POST", f"/invitations/{i['id']}/revoke")
+            items = payload if isinstance(payload, list) else payload.get("data", [])
+            print(f"invite: {len(items)} pending in Clerk")
+            for i in items:
+                if (i.get("email_address") or "").strip().lower() == email:
+                    rv = _clerk("POST", f"/invitations/{i['id']}/revoke")
+                    print(f"invite: revoked stale {i['id']} -> {rv.status_code}")
             r = _send()
+            print(f"invite: resend -> {r.status_code} {r.text[:200]}")
     if r.status_code not in (200, 201):
         msg = ""
         try:
