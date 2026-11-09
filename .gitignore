@@ -30,3 +30,6 @@ dist-ssr
 .vercel
 .env*
 _to_delete/
+
+# sample/test PDFs in the project root
+/*.pdf

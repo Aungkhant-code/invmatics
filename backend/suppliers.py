@@ -3,6 +3,7 @@ Invmatics Systems — Suppliers router
 Full CRUD + purchase order history.
 """
 
+from search_util import clean_search
 from uuid import UUID
 from typing import Optional
 
@@ -30,6 +31,7 @@ async def list_suppliers(
         .order("name")
     )
 
+    search = clean_search(search)
     if search:
         query = query.or_(
             f"name.ilike.%{search}%,"

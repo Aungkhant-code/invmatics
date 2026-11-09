@@ -4,6 +4,7 @@ Real Supabase queries. Every route verifies the Clerk token (require_auth) and
 runs through the tenant-scoped client, so a caller can only ever see their own org.
 """
 
+from search_util import clean_search
 from billing_state import check_product_limit
 from uuid import UUID
 from typing import Optional
@@ -80,6 +81,7 @@ async def list_products(
         .order("name")
     )
 
+    search = clean_search(search)
     if search:
         query = query.or_(f"name.ilike.%{search}%,sku.ilike.%{search}%")
 

@@ -17,6 +17,7 @@ All stock changes go through record_stock_movement() in Postgres
 so they're atomic and logged in stock_movements.
 """
 
+from search_util import clean_search
 from uuid import UUID
 from datetime import date
 from typing import Optional
@@ -117,6 +118,7 @@ async def list_sales_orders(
         query = query.eq("status", status)
     if customer_id:
         query = query.eq("customer_id", str(customer_id))
+    search = clean_search(search)
     if search:
         query = query.or_(
             f"order_number.ilike.%{search}%,"

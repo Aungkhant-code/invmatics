@@ -136,8 +136,17 @@ class JoinBody(BaseModel):
     code: str
 
 
+_join_tries: dict = {}
+
+
 @router.post("/staff/join")
 async def join_with_code(body: JoinBody, user: dict = Depends(require_auth)):
+    import time as _t
+    now = _t.monotonic()
+    tries = [t for t in _join_tries.get(user["clerk_user_id"], []) if now - t < 3600]
+    if len(tries) >= 10:
+        raise HTTPException(status_code=429, detail="Too many attempts. Please try again later.")
+    _join_tries[user["clerk_user_id"]] = tries + [now]
     """
     Move a brand-new account (sole member of its own auto-created organisation) into the
     organisation that issued the access code. Safety net for when the code didn't make
@@ -183,28 +192,6 @@ async def revoke_code(code_id: str, user: dict = Depends(require_auth)):
 
 
 # ── Invite ─────────────────────────────────────────────────────────
-
-@router.get("/staff/_clerk_debug")
-async def clerk_debug(email: str = "", user: dict = Depends(require_auth)):
-    """Temporary admin diagnostic: what THIS backend's Clerk key can actually see."""
-    out = {"key_prefix": (CLERK_SECRET_KEY or "")[:8], "frontend_url": FRONTEND_URL, "by_status": {}}
-    for st in ("pending", "accepted", "revoked"):
-        r = _clerk("GET", "/invitations", params={"status": st, "limit": 100})
-        try:
-            body = r.json()
-        except Exception:
-            body = r.text[:200]
-        items = body if isinstance(body, list) else (body.get("data", []) if isinstance(body, dict) else [])
-        out["by_status"][st] = {
-            "http": r.status_code,
-            "count": len(items),
-            "emails": [i.get("email_address") for i in items][:20],
-        }
-    if email:
-        u = _clerk("GET", "/users", params={"email_address": email.strip().lower()})
-        out["users_with_email"] = len(u.json()) if u.status_code == 200 else f"http {u.status_code}"
-    return out
-
 
 @router.post("/staff/invite", status_code=201)
 async def invite(
