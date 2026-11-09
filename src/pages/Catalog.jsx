@@ -109,10 +109,10 @@ export default function Catalog() {
   };
 
   const exportSheet = () => {
-    const rows = [['Product', 'SKU', 'Unit', 'Category', 'Currency', 'Cost', 'Price', 'On hand', 'Reorder point', 'Status']];
+    const rows = [['Product', 'SKU', 'Unit', 'Currency', 'Cost', 'Price', 'On hand', 'Reorder point', 'Status']];
     products.forEach(p => {
       const qty = p.stock_levels?.qty_on_hand ?? 0;
-      rows.push([p.name, p.sku, p.unit, p.category || '', (p.currency || baseCurrency()).toUpperCase(),
+      rows.push([p.name, p.sku, p.unit, (p.currency || baseCurrency()).toUpperCase(),
         p.cost_price, p.selling_price, qty, p.reorder_point, qty <= p.reorder_point ? 'Low stock' : 'In stock']);
     });
     downloadCsv(`products-${stamp()}`, rows);
