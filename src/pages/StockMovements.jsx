@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
+import { downloadCsv, stamp } from '../lib/exportCsv';
 
 const PAGE = 50;
 
@@ -76,6 +77,37 @@ export default function StockMovements() {
   };
 
   const term = search.trim().toLowerCase();
+  const [exporting, setExporting] = useState(false);
+  const exportSheet = async () => {
+    setExporting(true);
+    try {
+      // fetch every page for the current filters, not just what's loaded on screen
+      let all = [], offset = 0;
+      for (let i = 0; i < 400; i++) {
+        const data = await api.get(buildQuery(offset));
+        const chunk = data.movements || [];
+        all = all.concat(chunk);
+        if (chunk.length < PAGE) break;
+        offset += PAGE;
+      }
+      const q = search.trim().toLowerCase();
+      const list = q ? all.filter(m =>
+        (m.products?.name || '').toLowerCase().includes(q) ||
+        (m.products?.sku || '').toLowerCase().includes(q) ||
+        (m.notes || '').toLowerCase().includes(q)) : all;
+      const rowsOut = [['Date', 'Product', 'SKU', 'Type', 'Change', 'Before', 'After', 'Reference', 'By', 'Notes']];
+      list.forEach(m => rowsOut.push([
+        m.created_at ? new Date(m.created_at).toLocaleString() : '',
+        m.products?.name || '', m.products?.sku || '',
+        TYPE_LABELS[m.movement_type] || m.movement_type,
+        m.qty_change, m.qty_before, m.qty_after,
+        m.ref_type || '', m.users?.full_name || '', m.notes || '',
+      ]));
+      downloadCsv(`stock-movements-${stamp()}`, rowsOut);
+    } catch (e) { setError(e.message); }
+    finally { setExporting(false); }
+  };
+
   const shown = (rows || []).filter(m =>
     !term ||
     m.products?.name?.toLowerCase().includes(term) ||
@@ -95,6 +127,9 @@ export default function StockMovements() {
             {rows === null ? 'Loading…' : `${shown.length} movements · +${unitsIn} in · −${unitsOut} out`}
           </p>
         </div>
+        <button className="im-btn-ghost" onClick={exportSheet} disabled={exporting || rows === null}>
+          {exporting ? 'Preparing…' : 'Download spreadsheet'}
+        </button>
       </div>
 
       {error && <div className="im-error" onClick={() => setError(null)}>{error} ✕</div>}

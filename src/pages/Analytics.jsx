@@ -5,7 +5,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useApi } from '../lib/api';
-import { fmt } from '../lib/money';
+import { fmt, baseCurrency } from '../lib/money';
+import { downloadCsv, stamp } from '../lib/exportCsv';
 
 const PERIODS = [
   { key: 'this_month',    label: 'This month'    },
@@ -52,6 +53,34 @@ export default function Analytics() {
   }, [api, period, report]);
 
   useEffect(() => { load(); }, [load]);
+
+  const exportSheet = () => {
+    const pl = PERIODS.find(p => p.key === period)?.label || period;
+    const rl = REPORTS.find(r => r.key === report)?.label || report;
+    const out = [[`Invmatics report`, pl, `Amounts in ${baseCurrency()}`], []];
+    if (summary) {
+      out.push(['Summary'],
+        ['Revenue', summary.revenue], ['Gross profit', summary.gross_profit],
+        ['Gross margin %', summary.gross_margin],
+        ['Outstanding receivables', summary.outstanding_receivables],
+        ['Overdue invoices', summary.overdue_count], ['Stock value', summary.stock_value], []);
+    }
+    out.push([rl]);
+    if (report === 'revenue' && data?.trend) {
+      out.push(['Month', 'Revenue', 'COGS', 'Gross profit', 'Margin %']);
+      data.trend.forEach(r => out.push([`${r.label} ${r.year}`, r.revenue, r.cogs, r.gross_profit, r.gross_margin]));
+    } else if (report === 'products' && data?.products) {
+      out.push(['Product', 'SKU', 'Units sold', 'Revenue', 'Margin %', 'Share %']);
+      data.products.forEach(r => out.push([r.name, r.sku, r.units_sold, r.revenue, r.margin_pct, r.revenue_share]));
+    } else if (report === 'customers' && data?.customers) {
+      out.push(['Customer', 'Orders', 'Total spend', 'Avg order value']);
+      data.customers.forEach(r => out.push([r.name, r.order_count, r.total_spend, r.avg_order_value]));
+    } else if (report === 'categories' && data?.categories) {
+      out.push(['Category', 'Revenue', 'Share %']);
+      data.categories.forEach(r => out.push([r.category, r.revenue, r.share_pct]));
+    }
+    downloadCsv(`report-${report}-${period}-${stamp()}`, out);
+  };
 
   const renderTable = () => {
     if (loading) return (
@@ -155,6 +184,10 @@ export default function Analytics() {
           <h1 className="im-page-title">Analytics</h1>
           <p className="im-page-sub">Business performance reports</p>
         </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className="im-btn-ghost" onClick={exportSheet} disabled={loading || !summary}>
+          Download spreadsheet
+        </button>
         <div className="im-panel-tabs">
           {PERIODS.map(p => (
             <button key={p.key} className={`im-tab ${period === p.key ? 'active' : ''}`}
@@ -162,6 +195,7 @@ export default function Analytics() {
               {p.label}
             </button>
           ))}
+        </div>
         </div>
       </div>
 

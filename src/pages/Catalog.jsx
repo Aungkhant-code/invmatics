@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
 import { baseCurrency, fmtProduct } from '../lib/money';
 import { CurrencyInput } from '../components/shared/Pickers';
+import { downloadCsv, stamp } from '../lib/exportCsv';
 
 const EMPTY_FORM = {
   name: '', sku: '', unit: 'unit', description: '',
@@ -107,6 +108,16 @@ export default function Catalog() {
     load();
   };
 
+  const exportSheet = () => {
+    const rows = [['Product', 'SKU', 'Unit', 'Category', 'Currency', 'Cost', 'Price', 'On hand', 'Reorder point', 'Status']];
+    products.forEach(p => {
+      const qty = p.stock_levels?.qty_on_hand ?? 0;
+      rows.push([p.name, p.sku, p.unit, p.category || '', (p.currency || baseCurrency()).toUpperCase(),
+        p.cost_price, p.selling_price, qty, p.reorder_point, qty <= p.reorder_point ? 'Low stock' : 'In stock']);
+    });
+    downloadCsv(`products-${stamp()}`, rows);
+  };
+
   return (
     <div className="im-page">
 
@@ -116,7 +127,12 @@ export default function Catalog() {
           <h1 className="im-page-title">Product Catalogue</h1>
           <p className="im-page-sub">{products.length} products</p>
         </div>
-        <button className="im-btn-primary" onClick={openAdd}>+ Add product</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="im-btn-ghost" onClick={exportSheet} disabled={loading || products.length === 0}>
+            Download spreadsheet
+          </button>
+          <button className="im-btn-primary" onClick={openAdd}>+ Add product</button>
+        </div>
       </div>
 
       {error && <div className="im-error">{error}</div>}
