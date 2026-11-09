@@ -91,11 +91,15 @@ async def list_staff(
     except Exception as e:
         print(f"Note: couldn't list Clerk invitations: {e}")
 
-    codes = (
-        db_admin.table("access_codes").select("id, code, role, max_uses, uses, expires_at, revoked, created_at")
-        .eq("org_id", str(user["org_id"])).eq("revoked", False)
-        .order("created_at", desc=True).limit(50).execute().data
-    ) or []
+    codes = []
+    try:
+        codes = (
+            db_admin.table("access_codes").select("id, code, role, max_uses, uses, expires_at, revoked, created_at")
+            .eq("org_id", str(user["org_id"])).eq("revoked", False)
+            .order("created_at", desc=True).limit(50).execute().data
+        ) or []
+    except Exception as e:
+        print(f"Note: access_codes unavailable (run access_codes.sql?): {e}")
 
     return {"members": members, "invites": invites, "codes": codes,
             "me": db_user_id(user["clerk_user_id"])}
