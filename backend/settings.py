@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from auth import require_auth, require_role, get_client
+from org_sync import push_org_name_to_clerk
 
 router = APIRouter()
 
@@ -203,6 +204,8 @@ async def update_organisation(
     res = client.table("organisations").update(updates).eq("id", user["org_id"]).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Organisation not found")
+    if "name" in updates:
+        push_org_name_to_clerk(str(user["org_id"]), res.data[0]["name"])
     return {k: res.data[0].get(k) for k in ORG_FIELDS.replace(" ", "").split(",")}
 
 

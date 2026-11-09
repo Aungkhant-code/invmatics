@@ -101,3 +101,36 @@ def ensure_org_name(org: Optional[dict]) -> Optional[dict]:
     except Exception as e:
         print(f"Warning: couldn't sync organisation name from Clerk: {e}")
     return org
+
+
+def push_org_name_to_clerk(org_id: str, name: str) -> None:
+    """Best effort: rename the Clerk organization to match a name changed in Settings."""
+    try:
+        clerk_org_id = None
+        try:
+            row = db_admin.table("organisations").select("clerk_org_id").eq("id", org_id).limit(1).execute().data
+            clerk_org_id = (row or [{}])[0].get("clerk_org_id")
+        except Exception:
+            pass                                    # column not added yet
+        if not clerk_org_id:
+            admins = (
+                db_admin.table("users").select("clerk_user_id")
+                .eq("org_id", org_id).eq("role", "admin").eq("is_active", True)
+                .order("created_at").limit(5).execute()
+            ).data or []
+            for a in admins:
+                found = clerk_org_for_user(a["clerk_user_id"])
+                if found:
+                    clerk_org_id = found[0]
+                    break
+        if not clerk_org_id:
+            return
+        r = httpx.patch(
+            f"{CLERK_API}/organizations/{clerk_org_id}",
+            headers={"Authorization": f"Bearer {CLERK_SECRET_KEY}", "Content-Type": "application/json"},
+            json={"name": name}, timeout=10,
+        )
+        if r.status_code not in (200, 201):
+            print(f"Clerk org rename failed: {r.status_code} {r.text[:200]}")
+    except Exception as e:
+        print(f"Warning: couldn't rename the Clerk organization: {e}")

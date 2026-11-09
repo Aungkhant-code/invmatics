@@ -146,6 +146,7 @@ export default function Settings() {
       setData({ ...d, form: f });
       setDraft(f);
       setNotice('Saved');
+      if (section === 'company') window.dispatchEvent(new Event('im-org-updated'));
       if (section === 'company') money.reload();   // currency / timezone may have changed
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
