@@ -204,7 +204,7 @@ async def invite(
         })
 
     r = _send()
-    if r.status_code == 422 and "pending" in r.text.lower():
+    if r.status_code not in (200, 201) and "pending" in r.text.lower():
         # A stale pending invite for this email blocks a new one. Replace it when it is
         # ours (or its organisation no longer exists); never touch another org's invite.
         lst = _clerk("GET", "/invitations", params={"status": "pending", "limit": 100})
