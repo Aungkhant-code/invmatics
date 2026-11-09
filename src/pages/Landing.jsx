@@ -588,7 +588,7 @@ function CTA({ onStart }) {
             Start for free
             <Icon path={ICONS.arrow} />
           </button>
-          <a href="#" className="lp-btn-cta-outline">Contact sales</a>
+          <a href="mailto:contact@kuihua.org?subject=Invmatics%20sales%20enquiry" className="lp-btn-cta-outline">Contact sales</a>
         </div>
       </div>
     </section>
@@ -608,7 +608,7 @@ function Footer() {
             Invmatics
           </div>
           <ul className="lp-footer-links">
-            <li><a href="#">Features</a></li>
+            <li><a href="#features">Features</a></li>
             <li><a href="#pricing">Pricing</a></li>
             <li><a href="/privacy">Privacy</a></li>
             <li><a href="/terms">Terms</a></li>
