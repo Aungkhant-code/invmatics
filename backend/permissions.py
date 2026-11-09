@@ -19,6 +19,7 @@ prefix wins. Anything not listed is admin/manager only, so forgetting a rule fai
 from fastapi import Depends, HTTPException, Request
 
 from auth import require_auth
+from billing_state import gate
 
 ALL = {"admin", "manager", "sales", "warehouse", "finance"}
 ADMIN = {"admin"}
@@ -33,6 +34,7 @@ RULES = [
     ("/auth/me",                  ALL,                          ALL),
     ("/rates",                    ALL,                          ALL),
     ("/support",                  ALL,                          ALL),
+    ("/billing",                  ALL,                          ADMIN),
     ("/settings",                 ALL,                          ADMIN),
     ("/staff",                    ADMIN,                        ADMIN),
 
@@ -92,3 +94,4 @@ def enforce_permissions(request: Request, user: dict = Depends(require_auth)) ->
             status_code=403,
             detail=f"Your role ({user['role']}) doesn't have access to this.",
         )
+    gate(user["org_id"], request.method, path)        # trial lock + plan features (402)

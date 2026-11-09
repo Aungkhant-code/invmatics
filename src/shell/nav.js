@@ -24,6 +24,7 @@ export const NAV = [
   { label: 'Suppliers',  icon: 'suppliers', key: 'suppliers', roles: [...MGMT, 'warehouse'] },
   { label: 'Reports',    icon: 'reports',   key: 'reports',   roles: [...MGMT, 'finance'] },
   { label: 'Team',       icon: 'customers', key: 'staff',     roles: ['admin'] },
+  { label: 'Billing',    icon: 'invoices',  key: 'billing',   roles: ['admin'] },
   { label: 'Settings',   icon: 'settings',  key: 'settings',  roles: ['admin'] },
 ];
 

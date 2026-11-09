@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from auth import require_auth, get_client, forget_member, db_user_id
 from config import CLERK_SECRET_KEY, FRONTEND_URL
 from database import db_admin
+from billing_state import check_role_allowed, check_staff_limit
 from provisioning import sync_clerk_metadata, new_code, normalize_code, _discard_org
 from datetime import datetime, timedelta, timezone
 
@@ -111,7 +112,9 @@ async def list_staff(
 async def create_code(body: CodeBody, user: dict = Depends(require_auth)):
     if body.role not in ROLES:
         raise HTTPException(status_code=400, detail=f"Role must be one of: {', '.join(ROLES)}")
+    check_role_allowed(user["org_id"], body.role)
     max_uses = max(1, min(body.max_uses, 100))
+    check_staff_limit(user["org_id"])
     days     = max(1, min(body.days, 90))
     for _ in range(5):
         code = new_code()
@@ -153,6 +156,8 @@ async def join_with_code(body: JoinBody, user: dict = Depends(require_auth)):
     if row["uses"] >= row["max_uses"]:
         raise HTTPException(status_code=400, detail="That access code has already been used.")
     members = db_admin.table("users").select("id").eq("org_id", str(user["org_id"])).execute().data or []
+    check_role_allowed(row["org_id"], row["role"])
+    check_staff_limit(row["org_id"])
     if len(members) != 1:
         raise HTTPException(status_code=409, detail="You already belong to a team with other members.")
     bumped = db_admin.table("access_codes").update({"uses": row["uses"] + 1}) \
@@ -212,6 +217,9 @@ async def invite(
         raise HTTPException(status_code=400, detail="Enter a valid email address")
     if body.role not in ROLES:
         raise HTTPException(status_code=400, detail=f"Role must be one of: {', '.join(ROLES)}")
+
+    check_role_allowed(user["org_id"], body.role)
+    check_staff_limit(user["org_id"])
 
     already = client.table("users").select("id").eq("email", email).limit(1).execute().data
     if already:
@@ -295,6 +303,8 @@ async def update_member(
         raise HTTPException(status_code=400, detail="Nothing to change")
     if "role" in updates and updates["role"] not in ROLES:
         raise HTTPException(status_code=400, detail=f"Role must be one of: {', '.join(ROLES)}")
+    if "role" in updates:
+        check_role_allowed(user["org_id"], updates["role"])
 
     rows = client.table("users").select("id, clerk_user_id, role, is_active") \
         .eq("id", str(user_id)).limit(1).execute().data

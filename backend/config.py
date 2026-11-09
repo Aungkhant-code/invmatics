@@ -62,6 +62,15 @@ SUPABASE_SERVICE_ROLE_KEY = _require("SUPABASE_SERVICE_ROLE_KEY")
 CLERK_SECRET_KEY     = _require("CLERK_SECRET_KEY")
 CLERK_WEBHOOK_SECRET = _optional("CLERK_WEBHOOK_SECRET")
 
+# — Stripe (all optional until billing goes live) ——————————————————————
+STRIPE_SECRET_KEY     = _optional("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = _optional("STRIPE_WEBHOOK_SECRET")
+# price ids: STRIPE_PRICE_<PLAN>_<MONTHLY|YEARLY>, e.g. STRIPE_PRICE_GROWTH_MONTHLY
+STRIPE_PRICES = {
+    (plan, interval): _optional(f"STRIPE_PRICE_{plan.upper()}_{interval.upper()}")
+    for plan in ("starter", "growth", "business") for interval in ("monthly", "yearly")
+}
+
 # — Frontend ————————————————————————————————————————————————————————
 FRONTEND_URL = _optional("FRONTEND_URL", "https://www.invmatics.com")
 

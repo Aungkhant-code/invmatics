@@ -32,6 +32,7 @@ from settings     import router as settings_router
 from staff        import router as staff_router
 from rates        import router as rates_router
 from support      import router as support_router
+from billing      import router as billing_router, webhook_router as billing_webhook_router
 
 app = FastAPI(
     title="Invmatics Systems API",
@@ -52,6 +53,7 @@ GUARD = [Depends(enforce_permissions)]
 
 # Auth
 app.include_router(auth_router,      prefix="/api")
+app.include_router(billing_webhook_router, prefix="/api")   # Stripe webhook: signature-verified, no login
 
 # Core operations
 app.include_router(products_router,  prefix="/api", dependencies=GUARD)
@@ -70,6 +72,7 @@ app.include_router(settings_router,   prefix="/api", dependencies=GUARD)
 app.include_router(staff_router,      prefix="/api", dependencies=GUARD)
 app.include_router(rates_router,      prefix="/api", dependencies=GUARD)
 app.include_router(support_router,    prefix="/api", dependencies=GUARD)
+app.include_router(billing_router,    prefix="/api", dependencies=GUARD)
 
 
 @app.get("/api/health")

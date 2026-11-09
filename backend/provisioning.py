@@ -153,6 +153,12 @@ def redeem_access_code(code, clerk_user_id: str, email, full_name):
         raise ValueError("That access code has expired.")
     if row["uses"] >= row["max_uses"]:
         raise ValueError("That access code has already been used.")
+    try:
+        from billing_state import check_role_allowed, check_staff_limit
+        check_role_allowed(row["org_id"], row["role"])
+        check_staff_limit(row["org_id"])
+    except Exception as e:
+        raise ValueError(getattr(e, "detail", None) or "That team can't add more people right now.")
     bumped = (
         db_admin.table("access_codes").update({"uses": row["uses"] + 1})
         .eq("id", row["id"]).eq("uses", row["uses"]).execute().data

@@ -24,6 +24,7 @@ import { getTheme, saveTheme, applyTheme } from './lib/theme';
 import { MoneyProvider } from './lib/MoneyProvider';
 import Delivery from './pages/Delivery';
 import Help from './pages/Help';
+import Billing from './pages/Billing';
 import Settings from './pages/Settings';
 
 function Placeholder({ page }) {
@@ -65,11 +66,12 @@ const PAGES = {
   reports:   Analytics,
   delivery:  Delivery,
   help:      Help,
+  billing:   Billing,
   settings:  Settings,
 };
 
 export default function AppShell() {
-  const [page, setPage] = useState('dashboard');
+  const [page, setPage] = useState(() => (/billing=(success|cancelled)/.test(window.location.search) ? 'billing' : 'dashboard'));
   const { signOut } = useAuth();
   const api = useApi();
 
@@ -102,6 +104,7 @@ export default function AppShell() {
     return () => applyTheme('light');
   }, [theme]);
   const toggleTheme = () => setTheme(t => { const n = t === 'dark' ? 'light' : 'dark'; saveTheme(n); return n; });
+  const [bill, setBill] = useState(null);
   const [roleError, setRoleError] = useState(null);
   const [roleTry, setRoleTry] = useState(0);
 
@@ -121,6 +124,26 @@ export default function AppShell() {
     })();
     return () => { cancelled = true; };
   }, [api, userId, roleTry]);
+
+  // Trial / paywall banner for everyone (only admins can act on it)
+  useEffect(() => {
+    let cancelled = false;
+    api.get('/billing').then(d => { if (!cancelled) setBill(d); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [api, page]);
+
+  // Came from a pricing button: send the new admin straight to checkout for that plan.
+  useEffect(() => {
+    if (role === null || !bill) return;
+    let choice = null;
+    try { choice = JSON.parse(localStorage.getItem('im_plan_choice') || 'null'); } catch { /* ignore */ }
+    if (!choice) return;
+    try { localStorage.removeItem('im_plan_choice'); } catch { /* ignore */ }
+    if (role !== 'admin' || bill.has_subscription || !bill.payments_ready) return;
+    api.post('/billing/checkout', choice)
+      .then(r => { window.location.href = r.url; })
+      .catch(() => setPage('billing'));
+  }, [api, role, bill]);
 
   // On phones the detail panel stacks under the list: bring it into view when a row is tapped.
   useEffect(() => {
@@ -154,6 +177,19 @@ export default function AppShell() {
             <div className="im-error" style={{ marginBottom: 12 }}>
               Couldn't load your permissions, so the menu is limited: {roleError}{' '}
               <button className="im-btn-ghost" onClick={() => { setRoleError(null); setRoleTry(n => n + 1); }}>Retry</button>
+            </div>
+          )}
+          {bill && page !== 'billing' && (bill.locked || bill.past_due || (bill.state === 'trial' && bill.trial_days_left != null && bill.trial_days_left <= 7)) && (
+            <div className="im-error" style={{ marginBottom: 12, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
+              ...(bill.locked ? {} : { background: 'var(--amber-light, #FFFBEB)', color: '#92400E', borderColor: '#F59E0B' }) }}>
+              <span>
+                {bill.locked ? 'Your trial or subscription has ended, so Invmatics is read-only.'
+                  : bill.past_due ? 'Your last payment failed. Please update your card.'
+                  : `Your free trial ends in ${bill.trial_days_left} day${bill.trial_days_left === 1 ? '' : 's'}.`}
+              </span>
+              {role === 'admin'
+                ? <button className="im-btn-primary" onClick={() => setPage('billing')}>Choose a plan</button>
+                : <span>Ask an admin to choose a plan.</span>}
             </div>
           )}
           <MoneyProvider><PageComponent /></MoneyProvider>
