@@ -191,11 +191,16 @@ export default function Staff() {
       </div>
 
       {/* Pending invitations */}
-      {invites.length > 0 && (
+      {(
         <>
           <div className="im-detail-section-title">Pending invitations</div>
           <div className="im-panel">
-            <div className="im-table-wrap">
+            {invites.length === 0 && (
+              <p style={{ padding: 16, fontSize: 13, color: 'var(--text-muted)' }}>
+                No pending invitations. Accepted or cancelled invites disappear from this list.
+              </p>
+            )}
+            {invites.length > 0 && <div className="im-table-wrap">
               <table className="im-table">
                 <thead><tr><th>Email</th><th>Role</th><th>Sent</th><th></th></tr></thead>
                 <tbody>
@@ -215,7 +220,7 @@ export default function Staff() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </div>}
           </div>
         </>
       )}
