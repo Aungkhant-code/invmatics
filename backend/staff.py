@@ -324,3 +324,47 @@ async def update_member(
         sync_clerk_metadata(target["clerk_user_id"], member["org_id"], member["role"])
 
     return {k: member.get(k) for k in ("id", "full_name", "email", "role", "is_active")}
+
+
+# ── Delete a deactivated member ────────────────────────────────────
+
+@router.delete("/staff/{user_id}", status_code=204)
+async def delete_member(
+    user_id: UUID,
+    user:    dict = Depends(require_auth),
+    client         = Depends(get_client),
+):
+    """
+    Permanently remove a DEACTIVATED member: their Clerk account (so the email can sign up
+    again) and their users row. If the row is referenced by past records (created_by etc.)
+    it is anonymised instead, so history stays intact but the person is gone.
+    """
+    rows = client.table("users").select("id, clerk_user_id, is_active") \
+        .eq("id", str(user_id)).limit(1).execute().data
+    if not rows:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    target = rows[0]
+    if target["clerk_user_id"] == user["clerk_user_id"]:
+        raise HTTPException(status_code=400, detail="You can't delete your own account.")
+    if target["is_active"]:
+        raise HTTPException(status_code=400, detail="Deactivate this member before deleting them.")
+
+    cu = target["clerk_user_id"]
+    if cu and not str(cu).startswith("deleted:"):
+        r = _clerk("DELETE", f"/users/{cu}")
+        if r.status_code not in (200, 204, 404):
+            print(f"Clerk user delete failed: {r.status_code} {r.text[:200]}")
+            raise HTTPException(status_code=502, detail="Couldn't remove their sign-in account. Please try again.")
+
+    forget_member(cu)
+    try:
+        client.table("users").delete().eq("id", str(user_id)).execute()
+    except Exception as e:
+        print(f"users row kept (has history), anonymising: {e}")
+        client.table("users").update({
+            "clerk_user_id": f"deleted:{user_id}",
+            "email":         f"deleted+{user_id}@invalid.local",
+            "full_name":     "Deleted user",
+            "is_active":     False,
+        }).eq("id", str(user_id)).execute()
+    return None

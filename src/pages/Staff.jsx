@@ -90,6 +90,17 @@ export default function Staff() {
     update(m, { role }, `${m.full_name} is now ${role}.`);
   };
 
+  const removeMember = async (m) => {
+    if (!confirm(`Permanently delete ${m.full_name}? Their sign-in account is removed and the email can be used to sign up again. This can't be undone.`)) return;
+    setBusy(m.id); setNotice(null);
+    try {
+      await api.delete(`/staff/${m.id}`);
+      setNotice(`${m.full_name} deleted.`);
+      reload();
+    } catch (e) { setError(e.message); }
+    finally { setBusy(null); }
+  };
+
   const toggleActive = (m) => {
     if (m.is_active && !confirm(`Deactivate ${m.full_name}? They'll be signed out of Invmatics straight away.`)) return;
     update(m, { is_active: !m.is_active }, m.is_active ? `${m.full_name} deactivated.` : `${m.full_name} reactivated.`);
@@ -179,6 +190,11 @@ export default function Staff() {
                         <button className={`im-btn-ghost ${m.is_active ? 'red' : ''}`} disabled={busy === m.id}
                           onClick={() => toggleActive(m)}>
                           {m.is_active ? 'Deactivate' : 'Reactivate'}
+                        </button>
+                      )}
+                      {!isMe && !m.is_active && (
+                        <button className="im-btn-ghost red" disabled={busy === m.id} onClick={() => removeMember(m)}>
+                          Delete
                         </button>
                       )}
                     </td>
