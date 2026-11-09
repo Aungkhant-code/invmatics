@@ -1,10 +1,25 @@
+import { useEffect, useState } from 'react';
 import { UserButton, useUser } from '@clerk/react';
+import { useApi } from '../lib/api';
 import { NAV } from './nav';
 
 export default function Topbar({ page, onMenu }) {
   const label = NAV.flatMap(n => n.children ? [n, ...n.children] : [n])
     .find(n => n.key === page)?.label || (page === 'help' ? 'Help & Support' : 'Dashboard');
   const { user } = useUser();
+  const api = useApi();
+  const [orgName, setOrgName] = useState('');
+
+  // The organisation name lives in our own settings; refresh it when Settings saves.
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => api.get('/settings')
+      .then(d => { if (!cancelled) setOrgName(d?.organisation?.name || ''); })
+      .catch(() => {});
+    load();
+    window.addEventListener('im-org-updated', load);
+    return () => { cancelled = true; window.removeEventListener('im-org-updated', load); };
+  }, [api]);
 
   return (
     <header className="im-topbar">
@@ -17,7 +32,7 @@ export default function Topbar({ page, onMenu }) {
       </div>
       <div className="im-topbar-right">
         <span className="im-topbar-org">
-          {user?.organizationMemberships?.[0]?.organization?.name || user?.fullName || ''}
+          {orgName || user?.organizationMemberships?.[0]?.organization?.name || user?.fullName || ''}
         </span>
         <UserButton afterSignOutUrl="/" />
       </div>
