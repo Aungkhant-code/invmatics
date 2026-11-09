@@ -21,7 +21,8 @@ from pydantic import BaseModel
 from auth import require_auth, get_client, forget_member, db_user_id
 from config import CLERK_SECRET_KEY, FRONTEND_URL
 from database import db_admin
-from provisioning import sync_clerk_metadata
+from provisioning import sync_clerk_metadata, new_code
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter()
 
@@ -32,6 +33,12 @@ CLERK_API = "https://api.clerk.com/v1"
 class InviteBody(BaseModel):
     email: str
     role:  str = "warehouse"
+
+
+class CodeBody(BaseModel):
+    role:     str = "warehouse"
+    max_uses: int = 1
+    days:     int = 7
 
 
 class MemberUpdate(BaseModel):
@@ -84,7 +91,44 @@ async def list_staff(
     except Exception as e:
         print(f"Note: couldn't list Clerk invitations: {e}")
 
-    return {"members": members, "invites": invites, "me": db_user_id(user["clerk_user_id"])}
+    codes = (
+        db_admin.table("access_codes").select("id, code, role, max_uses, uses, expires_at, revoked, created_at")
+        .eq("org_id", str(user["org_id"])).eq("revoked", False)
+        .order("created_at", desc=True).limit(50).execute().data
+    ) or []
+
+    return {"members": members, "invites": invites, "codes": codes,
+            "me": db_user_id(user["clerk_user_id"])}
+
+
+# ── Access codes ───────────────────────────────────────────────────
+
+@router.post("/staff/codes", status_code=201)
+async def create_code(body: CodeBody, user: dict = Depends(require_auth)):
+    if body.role not in ROLES:
+        raise HTTPException(status_code=400, detail=f"Role must be one of: {', '.join(ROLES)}")
+    max_uses = max(1, min(body.max_uses, 100))
+    days     = max(1, min(body.days, 90))
+    for _ in range(5):
+        code = new_code()
+        try:
+            rows = db_admin.table("access_codes").insert({
+                "org_id": str(user["org_id"]), "code": code, "role": body.role,
+                "max_uses": max_uses, "uses": 0, "revoked": False,
+                "expires_at": (datetime.now(timezone.utc) + timedelta(days=days)).isoformat(),
+                "created_by": db_user_id(user["clerk_user_id"]),
+            }).execute().data
+            if rows:
+                return rows[0]
+        except Exception as e:
+            print(f"access code insert retry: {e}")
+    raise HTTPException(status_code=500, detail="Couldn't create a code. Please try again.")
+
+
+@router.delete("/staff/codes/{code_id}", status_code=204)
+async def revoke_code(code_id: str, user: dict = Depends(require_auth)):
+    db_admin.table("access_codes").update({"revoked": True}) \
+        .eq("id", code_id).eq("org_id", str(user["org_id"])).execute()
 
 
 # ── Invite ─────────────────────────────────────────────────────────

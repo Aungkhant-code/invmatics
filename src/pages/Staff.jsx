@@ -47,6 +47,20 @@ export default function Staff() {
   const [showInvite, setShowInvite] = useState(false);
   const [form,       setForm]       = useState({ email: '', role: 'warehouse' });
   const [sending,    setSending]    = useState(false);
+  const [codeForm,   setCodeForm]   = useState({ role: 'warehouse', max_uses: 1, days: 7 });
+
+  const makeCode = async () => {
+    setNotice(null);
+    try {
+      const c = await api.post('/staff/codes', codeForm);
+      setNotice(`Access code ${c.code} created.`);
+      reload();
+    } catch (e) { setError(e.message); }
+  };
+  const revokeCode = async (c) => {
+    try { await api.delete(`/staff/codes/${c.id}`); reload(); } catch (e) { setError(e.message); }
+  };
+  const copy = (t) => { try { navigator.clipboard.writeText(t); setNotice('Copied.'); } catch { /* ignore */ } };
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +119,7 @@ export default function Staff() {
 
   const members = data?.members || [];
   const invites = data?.invites || [];
+  const codes   = data?.codes   || [];
 
   return (
     <div className="im-page">
@@ -204,6 +219,49 @@ export default function Staff() {
           </div>
         </>
       )}
+
+      {/* Access codes */}
+      <div className="im-detail-section-title">Access codes</div>
+      <div className="im-panel" style={{ padding: 16 }}>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+          Share a code (or the sign-up link) instead of an email invite. They enter it on the sign-up page and join your team with the role you pick.
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
+          <div className="im-field"><label>Role</label>
+            <select value={codeForm.role} onChange={e => setCodeForm(f => ({ ...f, role: e.target.value }))}>
+              {ROLES.map(r => <option key={r} value={r}>{cap(r)}</option>)}
+            </select></div>
+          <div className="im-field"><label>People</label>
+            <input type="number" min="1" max="100" value={codeForm.max_uses} style={{ width: 80 }}
+              onChange={e => setCodeForm(f => ({ ...f, max_uses: +e.target.value || 1 }))} /></div>
+          <div className="im-field"><label>Valid (days)</label>
+            <input type="number" min="1" max="90" value={codeForm.days} style={{ width: 80 }}
+              onChange={e => setCodeForm(f => ({ ...f, days: +e.target.value || 7 }))} /></div>
+          <button className="im-btn-primary" onClick={makeCode}>Generate code</button>
+        </div>
+        {codes.length > 0 && (
+          <div className="im-table-wrap">
+            <table className="im-table">
+              <thead><tr><th>Code</th><th>Role</th><th>Used</th><th>Expires</th><th></th></tr></thead>
+              <tbody>
+                {codes.map(c => (
+                  <tr key={c.id}>
+                    <td style={{ fontFamily: 'monospace', fontWeight: 600, letterSpacing: 1 }}>{c.code}</td>
+                    <td><span className={`im-status-badge ${ROLE_CLS[c.role] || 'muted'}`}>{c.role}</span></td>
+                    <td>{c.uses}/{c.max_uses}</td>
+                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.expires_at ? new Date(c.expires_at).toLocaleDateString() : '—'}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <button className="im-btn-ghost" onClick={() => copy(c.code)}>Copy code</button>{' '}
+                      <button className="im-btn-ghost" onClick={() => copy(`${window.location.origin}/sign-up?code=${c.code}`)}>Copy link</button>{' '}
+                      <button className="im-btn-ghost red" onClick={() => revokeCode(c)}>Revoke</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* What each role can do */}
       <div className="im-detail-section-title">What each role can do</div>

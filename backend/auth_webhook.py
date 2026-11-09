@@ -141,7 +141,8 @@ def _handle_user_created(data: dict) -> dict:
     full_name     = pv._full_name(data, email)
 
     result = pv.provision_user(clerk_user_id, email=email, full_name=full_name or None,
-                                public_metadata=data.get("public_metadata") or None)   # None -> provisioning asks Clerk
+                                public_metadata=data.get("public_metadata") or None,
+                                unsafe_metadata=data.get("unsafe_metadata") or {})   # None -> provisioning asks Clerk
     return {
         "event":   "user.created",
         "org_id":  result["org_id"],

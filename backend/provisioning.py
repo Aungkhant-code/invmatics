@@ -122,6 +122,61 @@ def _invited_membership(meta: Optional[dict]):
     return (res.data[0]["id"], role) if res.data else None
 
 
+CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def normalize_code(code) -> str:
+    return re.sub(r"[^A-Z0-9]", "", str(code or "").upper())
+
+
+def new_code() -> str:
+    raw = "".join(secrets.choice(CODE_ALPHABET) for _ in range(8))
+    return f"{raw[:4]}-{raw[4:]}"
+
+
+def redeem_access_code(code, clerk_user_id: str, email, full_name):
+    """
+    Join an organisation with an access code. Returns the users row, or None when
+    no code was given. Raises ValueError("...") with a user-facing message if the
+    code is invalid, expired, revoked or used up. Use count is bumped with a
+    compare-and-set so two people can't both take the last use.
+    """
+    want = normalize_code(code)
+    if not want:
+        return None
+    rows = db_admin.table("access_codes").select("*").execute().data or []
+    row = next((r for r in rows if normalize_code(r["code"]) == want), None)
+    if not row or row.get("revoked"):
+        raise ValueError("That access code isn't valid.")
+    exp = row.get("expires_at")
+    if exp and datetime.fromisoformat(exp.replace("Z", "+00:00")) < datetime.now(timezone.utc):
+        raise ValueError("That access code has expired.")
+    if row["uses"] >= row["max_uses"]:
+        raise ValueError("That access code has already been used.")
+    bumped = (
+        db_admin.table("access_codes").update({"uses": row["uses"] + 1})
+        .eq("id", row["id"]).eq("uses", row["uses"]).execute().data
+    )
+    if not bumped:
+        raise ValueError("That access code has already been used.")
+    try:
+        made = db_admin.table("users").insert({
+            "org_id":        row["org_id"],
+            "clerk_user_id": clerk_user_id,
+            "email":         email or "",
+            "full_name":     full_name,
+            "role":          row["role"],
+            "is_active":     True,
+            "last_login_at": datetime.now(timezone.utc).isoformat(),
+        }).execute().data
+        if not made:
+            raise RuntimeError("Failed to create user")
+        return made[0]
+    except Exception:
+        db_admin.table("access_codes").update({"uses": row["uses"]}).eq("id", row["id"]).execute()
+        raise
+
+
 def _find_user(clerk_user_id: str) -> Optional[dict]:
     res = (
         db_admin.table("users")
@@ -159,6 +214,7 @@ def provision_user(
     email: Optional[str] = None,
     full_name: Optional[str] = None,
     public_metadata: Optional[dict] = None,
+    unsafe_metadata: Optional[dict] = None,
 ) -> dict:
     """
     Ensure the Clerk user has an organisation and a users row.
@@ -207,6 +263,27 @@ def provision_user(
             if winner:
                 return _result(winner, False)
             raise
+
+    # 2c. Access code entered at sign-up (stored in the user's unsafe_metadata)?
+    if unsafe_metadata is None:
+        try:
+            unsafe_metadata = fetch_clerk_user(clerk_user_id).get("unsafe_metadata") or {}
+        except Exception:
+            unsafe_metadata = {}
+    code = (unsafe_metadata or {}).get("join_code")
+    if code:
+        try:
+            joined = redeem_access_code(code, clerk_user_id, email, full_name)
+        except ValueError as e:
+            print(f"Access code rejected for {clerk_user_id}: {e}")
+            joined = None                # fall through: they get their own organisation
+        except Exception:
+            winner = _find_user(clerk_user_id)
+            if winner:
+                return _result(winner, False)
+            raise
+        if joined:
+            return _result(joined, True)
 
     # 3. Use the organization name entered at sign-up, if Clerk has one.
     clerk_org_id, org_name = None, None
