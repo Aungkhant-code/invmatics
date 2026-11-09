@@ -19,3 +19,7 @@
 .legal-foot { max-width: 760px; margin: 0 auto; padding: 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 13px; color: #6b7280; }
 .legal-foot a { color: #059669; text-decoration: none; }
 @media (max-width: 560px) { .legal-body h1 { font-size: 26px; } }
+
+/* global heading styles are light-on-dark; force dark text on this white page */
+.legal h1, .legal h2, .legal .legal-body h1, .legal .legal-body h2 { color: #111827; }
+.legal .legal-body h2 { font-weight: 700; }
