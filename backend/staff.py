@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from auth import require_auth, get_client, forget_member, db_user_id
 from config import CLERK_SECRET_KEY, FRONTEND_URL
 from database import db_admin
-from provisioning import sync_clerk_metadata, new_code
+from provisioning import sync_clerk_metadata, new_code, normalize_code, _discard_org
 from datetime import datetime, timedelta, timezone
 
 router = APIRouter()
@@ -127,6 +127,48 @@ async def create_code(body: CodeBody, user: dict = Depends(require_auth)):
         except Exception as e:
             print(f"access code insert retry: {e}")
     raise HTTPException(status_code=500, detail="Couldn't create a code. Please try again.")
+
+
+class JoinBody(BaseModel):
+    code: str
+
+
+@router.post("/staff/join")
+async def join_with_code(body: JoinBody, user: dict = Depends(require_auth)):
+    """
+    Move a brand-new account (sole member of its own auto-created organisation) into the
+    organisation that issued the access code. Safety net for when the code didn't make
+    it through sign-up.
+    """
+    want = normalize_code(body.code)
+    rows = db_admin.table("access_codes").select("*").execute().data or []
+    row = next((r for r in rows if normalize_code(r["code"]) == want), None)
+    if not want or not row or row.get("revoked"):
+        raise HTTPException(status_code=400, detail="That access code isn't valid.")
+    if str(row["org_id"]) == str(user["org_id"]):
+        return {"joined": False, "already": True}
+    exp = row.get("expires_at")
+    if exp and datetime.fromisoformat(exp.replace("Z", "+00:00")) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="That access code has expired.")
+    if row["uses"] >= row["max_uses"]:
+        raise HTTPException(status_code=400, detail="That access code has already been used.")
+    members = db_admin.table("users").select("id").eq("org_id", str(user["org_id"])).execute().data or []
+    if len(members) != 1:
+        raise HTTPException(status_code=409, detail="You already belong to a team with other members.")
+    bumped = db_admin.table("access_codes").update({"uses": row["uses"] + 1}) \
+        .eq("id", row["id"]).eq("uses", row["uses"]).execute().data
+    if not bumped:
+        raise HTTPException(status_code=400, detail="That access code has already been used.")
+    old_org = str(user["org_id"])
+    db_admin.table("users").update({"org_id": row["org_id"], "role": row["role"]}) \
+        .eq("clerk_user_id", user["clerk_user_id"]).execute()
+    forget_member(user["clerk_user_id"])
+    try:
+        sync_clerk_metadata(user["clerk_user_id"], row["org_id"], row["role"])
+    except Exception as e:
+        print(f"join: metadata sync failed: {e}")
+    _discard_org(old_org)
+    return {"joined": True}
 
 
 @router.delete("/staff/codes/{code_id}", status_code=204)

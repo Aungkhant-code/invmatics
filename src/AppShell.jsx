@@ -72,6 +72,24 @@ export default function AppShell() {
   const [page, setPage] = useState('dashboard');
   const { signOut } = useAuth();
   const api = useApi();
+
+  // Access code from sign-up: if the account still got its own organisation, move it into
+  // the inviting one, then reload so everything reads the right organisation.
+  useEffect(() => {
+    let code = null;
+    try { code = localStorage.getItem('im_join_code'); } catch { /* ignore */ }
+    if (!code) return;
+    (async () => {
+      try {
+        const r = await api.post('/staff/join', { code });
+        try { localStorage.removeItem('im_join_code'); } catch { /* ignore */ }
+        if (r?.joined) window.location.reload();
+      } catch (e) {
+        try { localStorage.removeItem('im_join_code'); } catch { /* ignore */ }
+        console.warn('Access code not applied:', e.message);
+      }
+    })();
+  }, [api]);
   const { userId } = useAuth();
   // Last known role for this user, so a refresh shows the full menu immediately
   const [role, setRole] = useState(() => readCache(userId, 'role'));

@@ -13,27 +13,33 @@ import { CLERK_APPEARANCE } from '../lib/clerkAppearance';
 
 export default function SignUpPage() {
   const [code, setCode] = useState(() => {
-    try { return new URLSearchParams(window.location.search).get('code') || ''; } catch { return ''; }
+    try {
+      const q = new URLSearchParams(window.location.search).get('code');
+      if (q) localStorage.setItem('im_join_code', q.toUpperCase());
+      return (q || localStorage.getItem('im_join_code') || '').toUpperCase();
+    } catch { return ''; }
   });
   const clean = code.trim();
+  const saved = (v) => { try { v ? localStorage.setItem('im_join_code', v) : localStorage.removeItem('im_join_code'); } catch { /* ignore */ } };
+  // Only ask on the first step; later steps (verification) keep the stored code.
+  const firstStep = window.location.pathname.replace(/\/$/, '') === '/sign-up';
 
   return (
     <AuthLayout>
-      <div style={{ maxWidth: 400, margin: '0 auto 14px', width: '100%' }}>
+      {firstStep && <div style={{ maxWidth: 400, margin: '0 auto 14px', width: '100%' }}>
         <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
           Joining a team? Enter your access code
         </label>
         <input
           value={code}
-          onChange={e => setCode(e.target.value.toUpperCase())}
+          onChange={e => { const v = e.target.value.toUpperCase(); setCode(v); saved(v.trim()); }}
           placeholder="Optional, e.g. K7QM-4X2P"
           autoComplete="off"
           style={{ width: '100%', padding: '10px 12px', borderRadius: 8, fontSize: 15, letterSpacing: 1,
                    border: '1px solid var(--border, #d1d5db)', background: 'var(--input-bg, #fff)', color: 'inherit' }}
         />
-      </div>
+      </div>}
       <SignUp
-        key={clean}
         routing="path"
         path="/sign-up"
         signInUrl="/sign-in"
