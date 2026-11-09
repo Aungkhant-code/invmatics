@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './Landing.css'
 import LogoGlyph from '../components/shared/Logo'
 
@@ -588,7 +588,7 @@ function CTA({ onStart }) {
             Start for free
             <Icon path={ICONS.arrow} />
           </button>
-          <a href="mailto:contact@kuihua.org?subject=Invmatics%20sales%20enquiry" className="lp-btn-cta-outline">Contact sales</a>
+          <a href="mailto:contact@kuihua.org?subject=Invmatics%20sales%20enquiry" className="lp-btn-cta-outline" onClick={openContact}>Contact sales</a>
         </div>
       </div>
     </section>
@@ -623,6 +623,70 @@ function Footer() {
   )
 }
 
+// ── Contact form ───────────────────────────────────────────────────
+const openContact = (e) => { e.preventDefault(); window.dispatchEvent(new Event('im-contact')) }
+
+function ContactModal() {
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState({ name: '', email: '', company: '', message: '', website: '' })
+  const [state, setState] = useState('idle')   // idle | sending | sent
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const show = () => { setOpen(true); setState('idle'); setError(null) }
+    window.addEventListener('im-contact', show)
+    return () => window.removeEventListener('im-contact', show)
+  }, [])
+
+  if (!open) return null
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setState('sending'); setError(null)
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/contact`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        const msg = Array.isArray(d.detail) ? d.detail.map(x => x.msg).join('; ') : d.detail
+        throw new Error(msg || 'Something went wrong. Please try again.')
+      }
+      setState('sent')
+    } catch (err) { setError(err.message); setState('idle') }
+  }
+
+  return (
+    <div className="lp-modal-overlay" onClick={() => setOpen(false)}>
+      <div className="lp-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Contact sales">
+        <button className="lp-modal-close" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+        {state === 'sent' ? (
+          <div className="lp-modal-done">
+            <h3>Thanks, we got your message</h3>
+            <p>We'll reply to {form.email} soon.</p>
+            <button className="lp-modal-btn" onClick={() => setOpen(false)}>Close</button>
+          </div>
+        ) : (
+          <form onSubmit={submit}>
+            <h3>Contact sales</h3>
+            <p className="lp-modal-sub">Tell us about your business and we'll get back to you.</p>
+            <label>Your name<input value={form.name} onChange={set('name')} required maxLength={100} autoFocus /></label>
+            <label>Work email<input type="email" value={form.email} onChange={set('email')} required maxLength={200} /></label>
+            <label>Company (optional)<input value={form.company} onChange={set('company')} maxLength={150} /></label>
+            <label>How can we help?<textarea value={form.message} onChange={set('message')} required rows={4} maxLength={3000} /></label>
+            <input className="lp-hp" tabIndex={-1} autoComplete="off" aria-hidden="true" value={form.website} onChange={set('website')} />
+            {error && <div className="lp-modal-error">{error}</div>}
+            <button className="lp-modal-btn" type="submit" disabled={state === 'sending'}>
+              {state === 'sending' ? 'Sending…' : 'Send message'}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Page ───────────────────────────────────────────────────────────
 export default function Landing({ onStart }) {
   return (
@@ -635,6 +699,7 @@ export default function Landing({ onStart }) {
       <Pricing />
       <CTA onStart={onStart} />
       <Footer />
+      <ContactModal />
     </>
   )
 }

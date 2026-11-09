@@ -33,6 +33,7 @@ from staff        import router as staff_router
 from rates        import router as rates_router
 from support      import router as support_router
 from billing      import router as billing_router, webhook_router as billing_webhook_router
+from contact      import router as contact_router
 
 app = FastAPI(
     title="Invmatics Systems API",
@@ -53,6 +54,7 @@ GUARD = [Depends(enforce_permissions)]
 
 # Auth
 app.include_router(auth_router,      prefix="/api")
+app.include_router(contact_router,   prefix="/api")   # public landing-page form (rate limited, no login)
 app.include_router(billing_webhook_router, prefix="/api")   # Stripe webhook: signature-verified, no login
 
 # Core operations

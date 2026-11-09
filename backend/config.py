@@ -71,6 +71,11 @@ STRIPE_PRICES = {
     for plan in ("starter", "growth", "business") for interval in ("monthly", "yearly")
 }
 
+# — Contact form email (optional: messages are always stored in the database) ——
+RESEND_API_KEY = _optional("RESEND_API_KEY")
+CONTACT_TO     = _optional("CONTACT_TO", "contact@kuihua.org")
+CONTACT_FROM   = _optional("CONTACT_FROM", "Invmatics <noreply@kuihua.org>")
+
 # — Frontend ————————————————————————————————————————————————————————
 FRONTEND_URL = _optional("FRONTEND_URL", "https://www.invmatics.com")
 

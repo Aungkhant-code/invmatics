@@ -1154,3 +1154,19 @@
   color: #cbd5e1;
   font-weight: 500;
 }
+/* ── Contact modal ───────────────────────────────────────────────── */
+.lp-modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.6); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 1000; }
+.lp-modal { position: relative; background: #fff; color: #111827; width: 100%; max-width: 460px; max-height: 92vh; overflow: auto; border-radius: 14px; padding: 26px; text-align: left; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.lp-modal h3 { margin: 0 0 4px; font-size: 20px; color: #111827; }
+.lp-modal-sub { margin: 0 0 14px; font-size: 14px; color: #6b7280; }
+.lp-modal label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 12px; }
+.lp-modal input, .lp-modal textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 5px; padding: 10px 12px; font: inherit; font-weight: 400; color: #111827; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; }
+.lp-modal input:focus, .lp-modal textarea:focus { outline: 2px solid #05966933; border-color: #059669; }
+.lp-modal textarea { resize: vertical; }
+.lp-modal-btn { width: 100%; padding: 12px; font: inherit; font-weight: 700; color: #fff; background: #059669; border: 0; border-radius: 8px; cursor: pointer; }
+.lp-modal-btn:disabled { opacity: .6; cursor: default; }
+.lp-modal-close { position: absolute; top: 10px; right: 12px; background: none; border: 0; font-size: 18px; color: #6b7280; cursor: pointer; }
+.lp-modal-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 8px; padding: 8px 10px; font-size: 13px; margin-bottom: 12px; }
+.lp-modal-done { text-align: center; padding: 10px 0; }
+.lp-modal-done p { color: #6b7280; margin-bottom: 16px; }
+.lp-hp { position: absolute !important; left: -9999px !important; width: 1px !important; height: 1px !important; opacity: 0 !important; }
