@@ -6,14 +6,18 @@ import SignUpPage from './pages/SignUpPage';
 import AppShell   from './AppShell';
 
 function LoadingScreen() {
+  // Same markup as the static splash in index.html, so there is no flash between them.
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '100vh', background: '#0F172A',
-    }}>
-      <div style={{ color: '#10B981', fontSize: 14, fontFamily: 'sans-serif' }}>
-        Loading...
-      </div>
+    <div className="im-boot">
+      <svg className="im-boot-mark" width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="14" fill="#059669" />
+        <polygon points="32,10 52,21 32,32 12,21" fill="#fff" />
+        <polygon points="12,24 30,34.5 30,55 12,44.5" fill="#fff" fillOpacity=".9" />
+        <polygon points="52,24 34,34.5 34,55 52,44.5" fill="#fff" fillOpacity=".5" />
+        <path d="M15.5 38.5 L20.5 44 L27 36" fill="none" stroke="#059669" strokeWidth="4.5"
+          strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <div className="im-boot-name">Invmatics</div>
     </div>
   );
 }

@@ -2,12 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png?v=2" />
+    <link rel="shortcut icon" href="/icon-32.png?v=2" />
+    <meta name="theme-color" content="#0F172A" />
+    <style>
+      @keyframes im-pulse { 0%,100% { transform: scale(1); opacity: 1 } 50% { transform: scale(.92); opacity: .75 } }
+      .im-boot { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+                 height:100vh; background:#0F172A; font-family: system-ui, -apple-system, sans-serif; }
+      .im-boot-mark { animation: im-pulse 1.6s ease-in-out infinite; }
+      .im-boot-name { color:#fff; font-size:20px; font-weight:700; letter-spacing:.2px; }
+    </style>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Invmatics</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="im-boot">
+        <svg class="im-boot-mark" width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#059669"/><polygon points="32,10 52,21 32,32 12,21" fill="#fff"/><polygon points="12,24 30,34.5 30,55 12,44.5" fill="#fff" fill-opacity=".9"/><polygon points="52,24 34,34.5 34,55 52,44.5" fill="#fff" fill-opacity=".5"/><path d="M15.5 38.5 L20.5 44 L27 36" fill="none" stroke="#059669" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="im-boot-name">Invmatics</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
