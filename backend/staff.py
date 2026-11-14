@@ -315,6 +315,14 @@ async def update_member(
         raise HTTPException(status_code=404, detail="Team member not found")
     member = res.data[0]
 
+    # Race guard: two admins demoting each other at the same moment can both pass the check
+    # above. If that left the organisation with no active admin, undo this change.
+    if losing_admin and _active_admins(client) < 1:
+        client.table("users").update({"role": target["role"], "is_active": target["is_active"]}) \
+            .eq("id", str(user_id)).execute()
+        forget_member(target["clerk_user_id"])
+        raise HTTPException(status_code=409, detail="Your organisation needs at least one active admin. Nothing was changed.")
+
     forget_member(target["clerk_user_id"])          # takes effect now on this instance
     if "role" in updates:
         # keep the Clerk token claim in step (best effort; the database is authoritative)

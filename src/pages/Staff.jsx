@@ -166,6 +166,8 @@ export default function Staff() {
                 ))
               ) : members.map(m => {
                 const isMe = m.id === data.me;
+                const activeAdmins = members.filter(x => x.role === 'admin' && x.is_active).length;
+                const lastAdmin = m.role === 'admin' && m.is_active && activeAdmins <= 1;
                 return (
                   <tr key={m.id} style={{ opacity: m.is_active ? 1 : 0.55 }}>
                     <td>
@@ -173,7 +175,8 @@ export default function Staff() {
                       <div className="im-td-sub">{m.email}</div>
                     </td>
                     <td>
-                      <select value={m.role} disabled={busy === m.id}
+                      <select value={m.role} disabled={busy === m.id || lastAdmin}
+                        title={lastAdmin ? 'You need at least one admin. Make someone else an admin first.' : undefined}
                         onChange={e => changeRole(m, e.target.value)}
                         style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 13 }}>
                         {ROLES.map(r => <option key={r} value={r}>{cap(r)}</option>)}
@@ -187,7 +190,8 @@ export default function Staff() {
                     <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{when(m.last_login_at)}</td>
                     <td>
                       {!isMe && (
-                        <button className={`im-btn-ghost ${m.is_active ? 'red' : ''}`} disabled={busy === m.id}
+                        <button className={`im-btn-ghost ${m.is_active ? 'red' : ''}`} disabled={busy === m.id || lastAdmin}
+                          title={lastAdmin ? 'This is your only admin. Make someone else an admin first.' : undefined}
                           onClick={() => toggleActive(m)}>
                           {m.is_active ? 'Deactivate' : 'Reactivate'}
                         </button>
