@@ -208,9 +208,9 @@ export default function Analytics() {
       {summary && (
         <div className="im-stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
           {[
-            { label: 'Revenue',        value: fmt(summary.revenue),        note: `${fmt(summary.revenue_pending)} payment pending` },
+            { label: 'Revenue',        value: fmt(summary.revenue),        note: `${fmt(summary.revenue_pending)} pending · excl. tax` },
             { label: 'Gross profit',   value: fmt(summary.gross_profit),   note: `${summary.gross_margin}%` },
-            { label: 'Outstanding',    value: fmt(summary.outstanding_receivables), note: `${summary.overdue_count} overdue` },
+            { label: 'Outstanding',    value: fmt(summary.outstanding_receivables), note: `incl. tax · ${summary.overdue_count} overdue` },
             { label: 'Stock value',    value: fmt(summary.stock_value),    note: 'current' },
           ].map(card => (
             <div key={card.label} className="im-stat-card">
