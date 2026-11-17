@@ -104,6 +104,57 @@ def _months_in_range(start_str: str, end_str: str) -> list[dict]:
 
 
 # ================================================================
+# REVENUE RECOGNITION
+# A sale counts toward the month of its order date as soon as the order is
+# confirmed (drafts and cancelled orders are excluded). Payment only decides
+# whether it is shown as Paid or Payment pending.
+# ================================================================
+
+REVENUE_STATUSES = ["confirmed", "dispatched", "delivered"]
+
+_BOOKED_SELECT = (
+    "exchange_rate, total_amount, subtotal, tax_amount, status, payment_status, "
+    "order_date, customer_id, customers(id, name), "
+    "sales_order_items(product_id, qty_ordered, line_total, "
+    "products(id, name, sku, cost_price, currency, categories(name)))"
+)
+
+
+def _booked_orders(client, start: str, end: str) -> list[dict]:
+    res = (
+        client.table("sales_orders")
+        .select(_BOOKED_SELECT)
+        .gte("order_date", start)
+        .lte("order_date", end)
+        .in_("status", REVENUE_STATUSES)
+        .execute()
+    )
+    return res.data or []
+
+
+def _is_paid(order: dict) -> bool:
+    return order.get("payment_status") == "paid"
+
+
+def _order_cogs(order: dict) -> float:
+    return sum(
+        float(i.get("qty_ordered") or 0) * _pb(i.get("products"), "cost_price")
+        for i in (order.get("sales_order_items") or [])
+    )
+
+
+def _totals(orders: list[dict]) -> dict:
+    revenue = sum(_b(o) for o in orders)
+    paid    = sum(_b(o) for o in orders if _is_paid(o))
+    return {
+        "revenue": revenue,
+        "paid":    paid,
+        "pending": revenue - paid,
+        "cogs":    sum(_order_cogs(o) for o in orders),
+    }
+
+
+# ================================================================
 # KPI SUMMARY
 # ================================================================
 
@@ -125,31 +176,9 @@ async def get_summary(
     """
     start, end = _period_dates(period)
 
-    orders = (
-        client.table("sales_orders")
-        .select("exchange_rate, total_amount, subtotal, tax_amount, status, payment_status, order_date")
-        .gte("order_date", start)
-        .lte("order_date", end)
-        .in_("status", ["dispatched", "delivered"])
-        .execute()
-    )
-
-    order_data = orders.data or []
-    revenue    = sum(_b(o) for o in order_data)
-
-    movements = (
-        client.table("stock_movements")
-        .select("qty_change, products(cost_price, currency)")
-        .eq("movement_type", "sale")
-        .gte("created_at", start)
-        .lte("created_at", end + "T23:59:59")
-        .execute()
-    )
-
-    cogs = sum(
-        abs(m["qty_change"]) * _pb(m.get("products"), "cost_price")
-        for m in (movements.data or [])
-    )
+    t       = _totals(_booked_orders(client, start, end))
+    revenue = t["revenue"]
+    cogs    = t["cogs"]
 
     gross_profit = revenue - cogs
     gross_margin = round((gross_profit / revenue * 100) if revenue > 0 else 0, 1)
@@ -192,15 +221,7 @@ async def get_summary(
     prev_start, prev_end = _period_dates(
         "last_month" if period == "this_month" else "this_month"
     )
-    prev_orders = (
-        client.table("sales_orders")
-        .select("exchange_rate, total_amount")
-        .gte("order_date", prev_start)
-        .lte("order_date", prev_end)
-        .in_("status", ["dispatched", "delivered"])
-        .execute()
-    )
-    prev_revenue  = sum(_b(o) for o in (prev_orders.data or []))
+    prev_revenue  = _totals(_booked_orders(client, prev_start, prev_end))["revenue"]
     revenue_delta = round(
         ((revenue - prev_revenue) / prev_revenue * 100)
         if prev_revenue > 0 else 0, 1
@@ -211,6 +232,8 @@ async def get_summary(
         "start":                   start,
         "end":                     end,
         "revenue":                 round(revenue, 2),
+        "revenue_paid":            round(t["paid"], 2),
+        "revenue_pending":         round(t["pending"], 2),
         "cogs":                    round(cogs, 2),
         "gross_profit":            round(gross_profit, 2),
         "gross_margin":            gross_margin,
@@ -241,37 +264,19 @@ async def revenue_trend(
 
     result = []
     for m in months:
-        orders = (
-            client.table("sales_orders")
-            .select("exchange_rate, total_amount, subtotal")
-            .gte("order_date", m["start"])
-            .lte("order_date", m["end"])
-            .in_("status", ["dispatched", "delivered"])
-            .execute()
-        )
-        revenue = sum(_b(o) for o in (orders.data or []))
-
-        movements = (
-            client.table("stock_movements")
-            .select("qty_change, products(cost_price, currency)")
-            .eq("movement_type", "sale")
-            .gte("created_at", m["start"])
-            .lte("created_at", m["end"] + "T23:59:59")
-            .execute()
-        )
-        cogs = sum(
-            abs(mv["qty_change"]) * (mv.get("products") or {}).get("cost_price", 0)
-            for mv in (movements.data or [])
-        )
+        t = _totals(_booked_orders(client, m["start"], m["end"]))
+        revenue, cogs = t["revenue"], t["cogs"]
 
         result.append({
-            "label":        m["label"],
-            "year":         m["year"],
-            "month":        m["month"],
-            "revenue":      round(revenue, 2),
-            "cogs":         round(cogs, 2),
-            "gross_profit": round(revenue - cogs, 2),
-            "gross_margin": round(
+            "label":           m["label"],
+            "year":            m["year"],
+            "month":           m["month"],
+            "revenue":         round(revenue, 2),
+            "revenue_paid":    round(t["paid"], 2),
+            "revenue_pending": round(t["pending"], 2),
+            "cogs":            round(cogs, 2),
+            "gross_profit":    round(revenue - cogs, 2),
+            "gross_margin":    round(
                 ((revenue - cogs) / revenue * 100) if revenue > 0 else 0, 1
             ),
         })
@@ -296,37 +301,25 @@ async def top_products(
     """
     start, end = _period_dates(period)
 
-    movements = (
-        client.table("stock_movements")
-        .select(
-            "product_id, qty_change, "
-            "products(id, name, sku, cost_price, selling_price, currency)"
-        )
-        .eq("movement_type", "sale")
-        .gte("created_at", start)
-        .lte("created_at", end + "T23:59:59")
-        .execute()
-    )
-
     product_stats: dict = {}
-    for m in (movements.data or []):
-        pid     = m["product_id"]
-        product = m.get("products") or {}
-        qty     = abs(m["qty_change"])
+    for o in _booked_orders(client, start, end):
+        fx = _fx(o)
+        for it in (o.get("sales_order_items") or []):
+            pid     = it.get("product_id")
+            product = it.get("products") or {}
+            qty     = float(it.get("qty_ordered") or 0)
 
-        if pid not in product_stats:
-            product_stats[pid] = {
+            st = product_stats.setdefault(pid, {
                 "product_id": pid,
                 "name":       product.get("name", "Unknown"),
                 "sku":        product.get("sku", ""),
                 "units_sold": 0,
                 "revenue":    0,
                 "cogs":       0,
-            }
-
-        product_stats[pid]["units_sold"] += qty
-        product_stats[pid]["revenue"]    += qty * _pb(product, "selling_price")
-        product_stats[pid]["cogs"]       += qty * _pb(product, "cost_price")
+            })
+            st["units_sold"] += qty
+            st["revenue"]    += float(it.get("line_total") or 0) * fx
+            st["cogs"]       += qty * _pb(product, "cost_price")
 
     stats = list(product_stats.values())
     for s in stats:
@@ -371,7 +364,7 @@ async def top_customers(
         )
         .gte("order_date", start)
         .lte("order_date", end)
-        .in_("status", ["dispatched", "delivered"])
+        .in_("status", REVENUE_STATUSES)
         .execute()
     )
 
@@ -415,28 +408,18 @@ async def revenue_by_category(
     """Revenue breakdown by product category. Powers the donut chart."""
     start, end = _period_dates(period)
 
-    movements = (
-        client.table("stock_movements")
-        .select(
-            "qty_change, "
-            "products(selling_price, currency, categories(name))"
-        )
-        .eq("movement_type", "sale")
-        .gte("created_at", start)
-        .lte("created_at", end + "T23:59:59")
-        .execute()
-    )
-
     category_revenue: dict = {}
     total = 0
 
-    for m in (movements.data or []):
-        product  = m.get("products") or {}
-        category = (product.get("categories") or {}).get("name", "Uncategorised")
-        revenue  = abs(m["qty_change"]) * _pb(product, "selling_price")
+    for o in _booked_orders(client, start, end):
+        fx = _fx(o)
+        for it in (o.get("sales_order_items") or []):
+            product  = it.get("products") or {}
+            category = (product.get("categories") or {}).get("name", "Uncategorised")
+            revenue  = float(it.get("line_total") or 0) * fx
 
-        category_revenue[category] = category_revenue.get(category, 0) + revenue
-        total += revenue
+            category_revenue[category] = category_revenue.get(category, 0) + revenue
+            total += revenue
 
     result = [
         {
@@ -554,28 +537,9 @@ async def financial_summary(
     start, end = _period_dates(period)
     today_str  = str(date.today())
 
-    orders = (
-        client.table("sales_orders")
-        .select("exchange_rate, total_amount, subtotal")
-        .gte("order_date", start)
-        .lte("order_date", end)
-        .in_("status", ["dispatched", "delivered"])
-        .execute()
-    )
-    revenue = sum(_b(o) for o in (orders.data or []))
-
-    movements = (
-        client.table("stock_movements")
-        .select("qty_change, products(cost_price, currency)")
-        .eq("movement_type", "sale")
-        .gte("created_at", start)
-        .lte("created_at", end + "T23:59:59")
-        .execute()
-    )
-    cogs = sum(
-        abs(m["qty_change"]) * _pb(m.get("products"), "cost_price")
-        for m in (movements.data or [])
-    )
+    t       = _totals(_booked_orders(client, start, end))
+    revenue = t["revenue"]
+    cogs    = t["cogs"]
 
     invoices = (
         client.table("invoices")
@@ -615,6 +579,8 @@ async def financial_summary(
         "start":                   start,
         "end":                     end,
         "revenue":                 round(revenue, 2),
+        "revenue_paid":            round(t["paid"], 2),
+        "revenue_pending":         round(t["pending"], 2),
         "cogs":                    round(cogs, 2),
         "gross_profit":            round(gross_profit, 2),
         "gross_margin":            gross_margin,

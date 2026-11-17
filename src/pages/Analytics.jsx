@@ -60,15 +60,16 @@ export default function Analytics() {
     const out = [[`Invmatics report`, pl, `Amounts in ${baseCurrency()}`], []];
     if (summary) {
       out.push(['Summary'],
-        ['Revenue', summary.revenue], ['Gross profit', summary.gross_profit],
+        ['Revenue', summary.revenue], ['Paid', summary.revenue_paid], ['Payment pending', summary.revenue_pending],
+        ['Gross profit', summary.gross_profit],
         ['Gross margin %', summary.gross_margin],
         ['Outstanding receivables', summary.outstanding_receivables],
         ['Overdue invoices', summary.overdue_count], ['Stock value', summary.stock_value], []);
     }
     out.push([rl]);
     if (report === 'revenue' && data?.trend) {
-      out.push(['Month', 'Revenue', 'COGS', 'Gross profit', 'Margin %']);
-      data.trend.forEach(r => out.push([`${r.label} ${r.year}`, r.revenue, r.cogs, r.gross_profit, r.gross_margin]));
+      out.push(['Month', 'Revenue', 'Paid', 'Payment pending', 'COGS', 'Gross profit', 'Margin %']);
+      data.trend.forEach(r => out.push([`${r.label} ${r.year}`, r.revenue, r.revenue_paid, r.revenue_pending, r.cogs, r.gross_profit, r.gross_margin]));
     } else if (report === 'products' && data?.products) {
       out.push(['Product', 'SKU', 'Units sold', 'Revenue', 'Margin %', 'Share %']);
       data.products.forEach(r => out.push([r.name, r.sku, r.units_sold, r.revenue, r.margin_pct, r.revenue_share]));
@@ -96,12 +97,14 @@ export default function Analytics() {
     if (report === 'revenue' && data.trend) {
       return (
         <table className="im-table">
-          <thead><tr><th>Month</th><th className="num">Revenue</th><th className="num">COGS</th><th className="num">Gross profit</th><th className="num">Margin</th></tr></thead>
+          <thead><tr><th>Month</th><th className="num">Revenue</th><th className="num">Paid</th><th className="num">Payment pending</th><th className="num">COGS</th><th className="num">Gross profit</th><th className="num">Margin</th></tr></thead>
           <tbody>
             {data.trend.map(row => (
               <tr key={`${row.year}-${row.month}`}>
                 <td>{row.label} {row.year}</td>
                 <td className="num">{fmt(row.revenue)}</td>
+                <td className="num">{fmt(row.revenue_paid)}</td>
+                <td className="num" style={{ color: row.revenue_pending > 0 ? 'var(--amber, #b45309)' : 'inherit' }}>{fmt(row.revenue_pending)}</td>
                 <td className="num">{fmt(row.cogs)}</td>
                 <td className="num" style={{ color: 'var(--green)', fontWeight: 700 }}>{fmt(row.gross_profit)}</td>
                 <td className="num">{row.gross_margin}%</td>
@@ -205,7 +208,7 @@ export default function Analytics() {
       {summary && (
         <div className="im-stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
           {[
-            { label: 'Revenue',        value: fmt(summary.revenue),        note: `${summary.gross_margin}% margin` },
+            { label: 'Revenue',        value: fmt(summary.revenue),        note: `${fmt(summary.revenue_pending)} payment pending` },
             { label: 'Gross profit',   value: fmt(summary.gross_profit),   note: `${summary.gross_margin}%` },
             { label: 'Outstanding',    value: fmt(summary.outstanding_receivables), note: `${summary.overdue_count} overdue` },
             { label: 'Stock value',    value: fmt(summary.stock_value),    note: 'current' },

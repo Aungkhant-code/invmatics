@@ -129,7 +129,7 @@ export default function LowStock() {
                     <tr>
                       <th style={{ width: 32 }}></th>
                       <th>Product</th>
-                      <th className="num">On hand</th>
+                      <th className="num">Available</th>
                       <th className="num">Reorder at</th>
                       <th className="num">On order</th>
                       <th>Supplier</th>
@@ -149,8 +149,8 @@ export default function LowStock() {
                           <div className="im-td-primary">{p.name}</div>
                           <div className="im-td-sub"><span className="im-mono">{p.sku}</span></div>
                         </td>
-                        <td className="num" style={{ fontWeight: 700, color: p.qty_on_hand === 0 ? 'var(--red)' : 'inherit' }}>
-                          {p.qty_on_hand}
+                        <td className="num" style={{ fontWeight: 700, color: p.qty_available === 0 ? 'var(--red)' : 'inherit' }}>
+                          {p.qty_available}
                         </td>
                         <td className="num">{p.reorder_point}</td>
                         <td className="num">{p.qty_on_order}</td>

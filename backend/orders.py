@@ -262,6 +262,26 @@ async def update_sales_order(
         if field in updates:
             updates[field] = str(updates[field])
 
+    cancelling = updates.get("status") == "cancelled"
+    release    = []
+    if cancelling:
+        before = _first(
+            client.table("sales_orders")
+            .select("status, sales_order_items(product_id, qty_ordered)")
+            .eq("id", str(order_id))
+        )
+        if not before:
+            raise HTTPException(status_code=404, detail="Sales order not found")
+        if before["status"] == "cancelled":
+            raise HTTPException(status_code=400, detail="Order is already cancelled")
+        if before["status"] in ("dispatched", "delivered"):
+            raise HTTPException(
+                status_code=400,
+                detail="This order has already been dispatched. Record a return instead of cancelling it.",
+            )
+        if before["status"] == "confirmed":
+            release = before.get("sales_order_items") or []
+
     result = (
         client.table("sales_orders")
         .update(updates)
@@ -271,6 +291,19 @@ async def update_sales_order(
 
     if not result.data:
         raise HTTPException(status_code=404, detail="Sales order not found")
+
+    # Put the reserved stock back into the available count.
+    for item in release:
+        current = (
+            db_admin.table("stock_levels")
+            .select("qty_reserved")
+            .eq("product_id", item["product_id"])
+            .execute()
+        )
+        if current.data:
+            db_admin.table("stock_levels").update({
+                "qty_reserved": max(0, current.data[0]["qty_reserved"] - item["qty_ordered"])
+            }).eq("product_id", item["product_id"]).execute()
 
     return result.data[0]
 

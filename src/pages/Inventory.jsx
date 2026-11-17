@@ -125,9 +125,9 @@ export default function Inventory() {
                   <tr>
                     <th>Product</th>
                     <th>SKU</th>
-                    <th className="num">On hand</th>
-                    <th className="num">Reserved</th>
                     <th className="num">Available</th>
+                    <th className="num">Reserved</th>
+                    <th className="num">On hand</th>
                     <th className="num">On order</th>
                     <th className="num">Reorder at</th>
                     <th className="num">Stock value</th>
@@ -149,11 +149,11 @@ export default function Inventory() {
                     <tr key={p.id}>
                       <td><div className="im-td-primary">{p.name}</div></td>
                       <td><span className="im-mono">{p.sku}</span></td>
-                      <td className="num" style={{ fontWeight: 700, color: p.qty_on_hand === 0 ? 'var(--red)' : 'var(--text-primary)' }}>
-                        {p.qty_on_hand}
+                      <td className="num" style={{ fontWeight: 700, color: p.qty_available === 0 ? 'var(--red)' : 'var(--text-primary)' }}>
+                        {p.qty_available}
                       </td>
                       <td className="num">{p.qty_reserved}</td>
-                      <td className="num">{p.qty_available}</td>
+                      <td className="num">{p.qty_on_hand}</td>
                       <td className="num">{p.qty_on_order}</td>
                       <td className="num">{p.reorder_point}</td>
                       <td className="num">{fmt(p.stock_value)}</td>

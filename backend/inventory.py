@@ -88,16 +88,18 @@ async def list_stock_levels(
         p["qty_on_hand"]    = qty
         p["qty_reserved"]   = sl.get("qty_reserved", 0)
         p["qty_on_order"]   = sl.get("qty_on_order", 0)
-        p["qty_available"]  = max(0, qty - sl.get("qty_reserved", 0))
+        avail = max(0, qty - sl.get("qty_reserved", 0))
+        p["qty_available"]  = avail
         p["stock_value"]    = round(qty * _cost_base(p, base), 2)
-        p["is_low_stock"]   = qty <= p["reorder_point"]
-        p["is_out_of_stock"] = qty == 0
+        # Alerts follow what can still be sold (on hand minus reserved by open orders).
+        p["is_low_stock"]   = avail <= p["reorder_point"]
+        p["is_out_of_stock"] = avail == 0
 
-        if qty == 0:
+        if avail == 0:
             p["severity"] = "out"
-        elif qty <= p["reorder_point"] * 0.5:
+        elif avail <= p["reorder_point"] * 0.5:
             p["severity"] = "critical"
-        elif qty <= p["reorder_point"]:
+        elif avail <= p["reorder_point"]:
             p["severity"] = "low"
         else:
             p["severity"] = "ok"
@@ -380,7 +382,7 @@ async def low_stock_summary(
         client.table("products")
         .select(
             "id, name, sku, supplier_id, reorder_point, reorder_qty, cost_price, currency, "
-            "stock_levels(qty_on_hand, qty_on_order), "
+            "stock_levels(qty_on_hand, qty_reserved, qty_on_order), "
             "suppliers(name, lead_days)"
         )
         .eq("is_active", True)
@@ -397,9 +399,11 @@ async def low_stock_summary(
 
     base = org_currency(client, user["org_id"])
     for p in products:
-        sl  = p.get("stock_levels") or {}
-        qty = sl.get("qty_on_hand", 0)
-        rop = p["reorder_point"]
+        sl       = p.get("stock_levels") or {}
+        on_hand  = sl.get("qty_on_hand", 0)
+        reserved = sl.get("qty_reserved", 0)
+        qty      = max(0, on_hand - reserved)   # available to sell
+        rop      = p["reorder_point"]
 
         if qty > rop:
             continue
@@ -410,7 +414,9 @@ async def low_stock_summary(
 
         enriched = {
             **p,
-            "qty_on_hand":      qty,
+            "qty_on_hand":      on_hand,
+            "qty_reserved":     reserved,
+            "qty_available":    qty,
             "qty_on_order":     sl.get("qty_on_order", 0),
             "est_reorder_cost": round(p["reorder_qty"] * _cost_base(p, base), 2),
             "est_arrival":      est_arrival,

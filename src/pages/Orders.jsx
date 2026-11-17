@@ -128,6 +128,15 @@ export default function Orders() {
     } catch (e) { setError(e.message); }
   };
 
+  const cancelOrder = async (id) => {
+    if (!confirm('Cancel this order? The reserved stock goes back to available.')) return;
+    try {
+      await api.put(`/orders/sales/${id}`, { status: 'cancelled' });
+      load();
+      if (selected?.id === id) setSelected(prev => ({ ...prev, status: 'cancelled' }));
+    } catch (e) { setError(e.message); }
+  };
+
   const markPaid = async (id) => {
     try {
       await api.post(`/orders/sales/${id}/mark-paid`);
@@ -228,6 +237,11 @@ export default function Orders() {
                       Dispatch
                     </button>
                   )}
+                  {selected.status === 'confirmed' && (
+                    <button className="im-btn-ghost" onClick={() => cancelOrder(selected.id)}>
+                      Cancel order
+                    </button>
+                  )}
                   {selected.payment_status === 'unpaid' && selected.status !== 'cancelled' && (
                     <button className="im-btn-ghost" onClick={() => markPaid(selected.id)}>
                       Mark paid
@@ -250,7 +264,7 @@ export default function Orders() {
                 </div>
                 <div className="im-detail-field"><span>Payment</span>
                   <span className={`im-status-badge ${selected.payment_status === 'paid' ? 'ok' : selected.payment_status === 'overdue' ? 'out' : 'warn'}`}>
-                    {selected.payment_status}
+                    {selected.payment_status === 'unpaid' ? 'payment pending' : selected.payment_status}
                   </span>
                 </div>
                 <div className="im-detail-field"><span>Order date</span><strong>{selected.order_date}</strong></div>

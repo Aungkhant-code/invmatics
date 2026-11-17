@@ -109,11 +109,13 @@ export default function Catalog() {
   };
 
   const exportSheet = () => {
-    const rows = [['Product', 'SKU', 'Unit', 'Currency', 'Cost', 'Price', 'On hand', 'Reorder point', 'Status']];
+    const rows = [['Product', 'SKU', 'Unit', 'Currency', 'Cost', 'Price', 'Available', 'Reserved', 'On hand', 'Reorder point', 'Status']];
     products.forEach(p => {
-      const qty = p.stock_levels?.qty_on_hand ?? 0;
+      const onHand   = p.stock_levels?.qty_on_hand ?? 0;
+      const reserved = p.stock_levels?.qty_reserved ?? 0;
+      const qty      = Math.max(0, onHand - reserved);
       rows.push([p.name, p.sku, p.unit, (p.currency || baseCurrency()).toUpperCase(),
-        p.cost_price, p.selling_price, qty, p.reorder_point, qty <= p.reorder_point ? 'Low stock' : 'In stock']);
+        p.cost_price, p.selling_price, qty, reserved, onHand, p.reorder_point, qty <= p.reorder_point ? 'Low stock' : 'In stock']);
     });
     downloadCsv(`products-${stamp()}`, rows);
   };
@@ -158,7 +160,7 @@ export default function Catalog() {
                 <th>Unit</th>
                 <th className="num">Cost</th>
                 <th className="num">Price</th>
-                <th className="num">On hand</th>
+                <th className="num">Available</th>
                 <th className="num">Reorder</th>
                 <th>Status</th>
                 <th></th>
@@ -178,7 +180,8 @@ export default function Catalog() {
                   No products yet — add your first product
                 </td></tr>
               ) : products.map(p => {
-                const qty = p.stock_levels?.qty_on_hand ?? 0;
+                const reserved = p.stock_levels?.qty_reserved ?? 0;
+                const qty = Math.max(0, (p.stock_levels?.qty_on_hand ?? 0) - reserved);
                 const isLow = qty <= p.reorder_point;
                 return (
                   <tr key={p.id}>

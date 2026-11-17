@@ -223,7 +223,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="im-low-qty">
-                  <span className="im-qty-current">{row.qty_on_hand}</span>
+                  <span className="im-qty-current">{row.qty_available ?? row.qty_on_hand}</span>
                   <span className="im-qty-sep">/</span>
                   <span className="im-qty-min">{row.reorder_point}</span>
                 </div>
