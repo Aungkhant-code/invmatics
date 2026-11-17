@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
 import { fmt, fmtDoc, baseCurrency, priceIn, effectiveRate } from '../lib/money';
 import OrderCurrency from '../components/shared/OrderCurrency';
+import { SearchSelect } from '../components/shared/Pickers';
 
 const STATUS_TABS = ['all', 'draft', 'sent', 'partial', 'received', 'cancelled'];
 const STATUS_CLS = { draft: 'muted', sent: 'info', partial: 'warn', received: 'ok', cancelled: 'out' };
@@ -264,10 +265,16 @@ export default function PurchaseOrders() {
               <div className="im-form-grid">
                 <div className="im-field span-2">
                   <label>Supplier *</label>
-                  <select value={form.supplier_id} onChange={e => setForm(f => ({ ...f, supplier_id: e.target.value }))}>
-                    <option value="">Select supplier…</option>
-                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <SearchSelect value={form.supplier_id}
+                    onChange={id => setForm(f => ({ ...f, supplier_id: id }))}
+                    options={suppliers.map(s => ({ id: s.id, label: s.name }))}
+                    placeholder="Type to search or add a supplier…" emptyText="No supplier found"
+                    createText="Add new supplier"
+                    onCreate={async (name) => {
+                      const s = await api.post('/suppliers', { name });
+                      setSuppliers(list => [...list, s].sort((a, b) => a.name.localeCompare(b.name)));
+                      return { id: s.id, label: s.name };
+                    }} />
                 </div>
                 <div className="im-field">
                   <label>Expected delivery</label>

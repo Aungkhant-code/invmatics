@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
 import { fmt, fmtDoc, baseCurrency, priceIn, effectiveRate } from '../lib/money';
 import OrderCurrency from '../components/shared/OrderCurrency';
+import { SearchSelect } from '../components/shared/Pickers';
 
 const EMPTY_LINE = { product_id: '', qty: '1', unit_price: '' };
 const EMPTY_FORM = { customer_id: '', due_date: '', customer_ref: '', notes: '', makeInvoice: true, currency: '', exchange_rate: '', lines: [] };
@@ -327,10 +328,16 @@ export default function Orders() {
               <div className="im-form-grid">
                 <div className="im-field span-2">
                   <label>Customer *</label>
-                  <select value={form.customer_id} onChange={e => setForm(f => ({ ...f, customer_id: e.target.value }))}>
-                    <option value="">Select customer…</option>
-                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <SearchSelect value={form.customer_id}
+                    onChange={id => setForm(f => ({ ...f, customer_id: id }))}
+                    options={customers.map(c => ({ id: c.id, label: c.name }))}
+                    placeholder="Type to search or add a customer…" emptyText="No customer found"
+                    createText="Add new customer"
+                    onCreate={async (name) => {
+                      const c = await api.post('/customers', { name });
+                      setCustomers(list => [...list, c].sort((a, b) => a.name.localeCompare(b.name)));
+                      return { id: c.id, label: c.name };
+                    }} />
                 </div>
                 <div className="im-field">
                   <label>Due date</label>
