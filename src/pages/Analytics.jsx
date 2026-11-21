@@ -132,6 +132,7 @@ export default function Analytics() {
                       <td style={{ paddingLeft: 36 }}>
                         <span className="im-mono">{t.order_number}</span>
                         <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 12 }}>{t.order_date} · {t.customer}</span>
+                        {t.payment === 'partial' && <span className="im-status-badge warn" style={{ marginLeft: 8 }}>partly paid</span>}
                       </td>
                       <td className="num">{fmt(t.revenue)}</td>
                       <td className="num">{fmt(t.revenue_paid)}</td>

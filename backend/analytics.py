@@ -115,6 +115,7 @@ REVENUE_STATUSES = ["confirmed", "dispatched", "delivered"]
 _BOOKED_SELECT = (
     "id, order_number, exchange_rate, total_amount, subtotal, tax_amount, status, payment_status, "
     "order_date, customer_id, customers(id, name), "
+    "invoices(total_amount, amount_paid, status), "
     "sales_order_items(product_id, qty_ordered, line_total, "
     "products(id, name, sku, cost_price, currency, categories(name)))"
 )
@@ -136,6 +137,18 @@ def _is_paid(order: dict) -> bool:
     return order.get("payment_status") == "paid"
 
 
+def _paid_fraction(order: dict) -> float:
+    """Share of an order that has been paid: 1 once marked paid, otherwise what its invoices have received."""
+    if _is_paid(order):
+        return 1.0
+    invs  = [i for i in (order.get("invoices") or []) if i.get("status") != "void"]
+    total = sum(float(i.get("total_amount") or 0) for i in invs)
+    if total <= 0:
+        return 0.0
+    got = sum(float(i.get("amount_paid") or 0) for i in invs)
+    return max(0.0, min(1.0, got / total))
+
+
 def _order_cogs(order: dict) -> float:
     return sum(
         float(i.get("qty_ordered") or 0) * _pb(i.get("products"), "cost_price")
@@ -145,7 +158,7 @@ def _order_cogs(order: dict) -> float:
 
 def _totals(orders: list[dict]) -> dict:
     revenue = sum(_b(o) for o in orders)
-    paid    = sum(_b(o) for o in orders if _is_paid(o))
+    paid    = sum(_b(o) * _paid_fraction(o) for o in orders)
     return {
         "revenue": revenue,
         "paid":    paid,
@@ -271,16 +284,17 @@ async def revenue_trend(
         transactions = []
         for o in sorted(orders, key=lambda o: (o.get("order_date") or "", o.get("order_number") or ""), reverse=True):
             rev, cg = _b(o), _order_cogs(o)
-            paid = _is_paid(o)
+            frac = _paid_fraction(o)
             transactions.append({
+                "payment":         "paid" if frac >= 1 else ("partial" if frac > 0 else "pending"),
                 "id":              o["id"],
                 "order_number":    o.get("order_number"),
                 "order_date":      o.get("order_date"),
                 "customer":        (o.get("customers") or {}).get("name", "Unknown"),
                 "status":          o.get("status"),
                 "revenue":         round(rev, 2),
-                "revenue_paid":    round(rev if paid else 0, 2),
-                "revenue_pending": round(0 if paid else rev, 2),
+                "revenue_paid":    round(rev * frac, 2),
+                "revenue_pending": round(rev - rev * frac, 2),
                 "cogs":            round(cg, 2),
                 "gross_profit":    round(rev - cg, 2),
                 "gross_margin":    round(((rev - cg) / rev * 100) if rev > 0 else 0, 1),
