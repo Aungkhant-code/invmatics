@@ -3,7 +3,7 @@
  * Real data from /api/analytics/*
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useApi } from '../lib/api';
 import { fmt, baseCurrency } from '../lib/money';
 import { downloadCsv, stamp } from '../lib/exportCsv';
@@ -31,6 +31,7 @@ export default function Analytics() {
   const [summary,    setSummary]    = useState(null);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
+  const [collapsed,  setCollapsed]  = useState({});   // month key -> true when its transactions are hidden
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,8 +69,11 @@ export default function Analytics() {
     }
     out.push([rl]);
     if (report === 'revenue' && data?.trend) {
-      out.push(['Month', 'Revenue', 'Paid', 'Payment pending', 'COGS', 'Gross profit', 'Margin %']);
-      data.trend.forEach(r => out.push([`${r.label} ${r.year}`, r.revenue, r.revenue_paid, r.revenue_pending, r.cogs, r.gross_profit, r.gross_margin]));
+      out.push(['Month', 'Order', 'Date', 'Customer', 'Revenue', 'Paid', 'Payment pending', 'COGS', 'Gross profit', 'Margin %']);
+      data.trend.forEach(r => {
+        out.push([`${r.label} ${r.year}`, 'Month total', '', '', r.revenue, r.revenue_paid, r.revenue_pending, r.cogs, r.gross_profit, r.gross_margin]);
+        (r.transactions || []).forEach(t => out.push(['', t.order_number, t.order_date, t.customer, t.revenue, t.revenue_paid, t.revenue_pending, t.cogs, t.gross_profit, t.gross_margin]));
+      });
     } else if (report === 'products' && data?.products) {
       out.push(['Product', 'SKU', 'Units sold', 'Revenue', 'Margin %', 'Share %']);
       data.products.forEach(r => out.push([r.name, r.sku, r.units_sold, r.revenue, r.margin_pct, r.revenue_share]));
@@ -99,17 +103,47 @@ export default function Analytics() {
         <table className="im-table">
           <thead><tr><th>Month</th><th className="num">Revenue</th><th className="num">Paid</th><th className="num">Payment pending</th><th className="num">COGS</th><th className="num">Gross profit</th><th className="num">Margin</th></tr></thead>
           <tbody>
-            {data.trend.map(row => (
-              <tr key={`${row.year}-${row.month}`}>
-                <td>{row.label} {row.year}</td>
-                <td className="num">{fmt(row.revenue)}</td>
-                <td className="num">{fmt(row.revenue_paid)}</td>
-                <td className="num" style={{ color: row.revenue_pending > 0 ? 'var(--amber, #b45309)' : 'inherit' }}>{fmt(row.revenue_pending)}</td>
-                <td className="num">{fmt(row.cogs)}</td>
-                <td className="num" style={{ color: 'var(--green)', fontWeight: 700 }}>{fmt(row.gross_profit)}</td>
-                <td className="num">{row.gross_margin}%</td>
-              </tr>
-            ))}
+            {data.trend.map(row => {
+              const key  = `${row.year}-${row.month}`;
+              const txs  = row.transactions || [];
+              const hide = !!collapsed[key];
+              return (
+                <Fragment key={key}>
+                  <tr className="im-month-row" onClick={() => txs.length && setCollapsed(c => ({ ...c, [key]: !c[key] }))}
+                    style={{ cursor: txs.length ? 'pointer' : 'default', fontWeight: 700 }}>
+                    <td>
+                      <span style={{ display: 'inline-block', width: 16, color: 'var(--text-muted)' }}>
+                        {txs.length ? (hide ? '▸' : '▾') : ''}
+                      </span>
+                      {row.label} {row.year}
+                      <span style={{ marginLeft: 8, fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>
+                        {txs.length} {txs.length === 1 ? 'order' : 'orders'}
+                      </span>
+                    </td>
+                    <td className="num">{fmt(row.revenue)}</td>
+                    <td className="num">{fmt(row.revenue_paid)}</td>
+                    <td className="num" style={{ color: row.revenue_pending > 0 ? 'var(--amber, #b45309)' : 'inherit' }}>{fmt(row.revenue_pending)}</td>
+                    <td className="num">{fmt(row.cogs)}</td>
+                    <td className="num" style={{ color: 'var(--green)' }}>{fmt(row.gross_profit)}</td>
+                    <td className="num">{row.gross_margin}%</td>
+                  </tr>
+                  {!hide && txs.map(t => (
+                    <tr key={t.id} className="im-tx-row">
+                      <td style={{ paddingLeft: 36 }}>
+                        <span className="im-mono">{t.order_number}</span>
+                        <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 12 }}>{t.order_date} · {t.customer}</span>
+                      </td>
+                      <td className="num">{fmt(t.revenue)}</td>
+                      <td className="num">{fmt(t.revenue_paid)}</td>
+                      <td className="num" style={{ color: t.revenue_pending > 0 ? 'var(--amber, #b45309)' : 'inherit' }}>{fmt(t.revenue_pending)}</td>
+                      <td className="num">{fmt(t.cogs)}</td>
+                      <td className="num">{fmt(t.gross_profit)}</td>
+                      <td className="num">{t.gross_margin}%</td>
+                    </tr>
+                  ))}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       );

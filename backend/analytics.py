@@ -113,7 +113,7 @@ def _months_in_range(start_str: str, end_str: str) -> list[dict]:
 REVENUE_STATUSES = ["confirmed", "dispatched", "delivered"]
 
 _BOOKED_SELECT = (
-    "exchange_rate, total_amount, subtotal, tax_amount, status, payment_status, "
+    "id, order_number, exchange_rate, total_amount, subtotal, tax_amount, status, payment_status, "
     "order_date, customer_id, customers(id, name), "
     "sales_order_items(product_id, qty_ordered, line_total, "
     "products(id, name, sku, cost_price, currency, categories(name)))"
@@ -264,10 +264,30 @@ async def revenue_trend(
 
     result = []
     for m in months:
-        t = _totals(_booked_orders(client, m["start"], m["end"]))
+        orders = _booked_orders(client, m["start"], m["end"])
+        t = _totals(orders)
         revenue, cogs = t["revenue"], t["cogs"]
 
+        transactions = []
+        for o in sorted(orders, key=lambda o: (o.get("order_date") or "", o.get("order_number") or ""), reverse=True):
+            rev, cg = _b(o), _order_cogs(o)
+            paid = _is_paid(o)
+            transactions.append({
+                "id":              o["id"],
+                "order_number":    o.get("order_number"),
+                "order_date":      o.get("order_date"),
+                "customer":        (o.get("customers") or {}).get("name", "Unknown"),
+                "status":          o.get("status"),
+                "revenue":         round(rev, 2),
+                "revenue_paid":    round(rev if paid else 0, 2),
+                "revenue_pending": round(0 if paid else rev, 2),
+                "cogs":            round(cg, 2),
+                "gross_profit":    round(rev - cg, 2),
+                "gross_margin":    round(((rev - cg) / rev * 100) if rev > 0 else 0, 1),
+            })
+
         result.append({
+            "transactions":    transactions,
             "label":           m["label"],
             "year":            m["year"],
             "month":           m["month"],
