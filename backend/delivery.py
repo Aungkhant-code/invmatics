@@ -373,6 +373,76 @@ async def get_delivery_order_pdf(
 # DELIVERY CONFIRMATIONS
 # ================================================================
 
+@router.get("/delivery-orders/{do_number}/confirmation-form/pdf")
+async def get_confirmation_form_pdf(
+    do_number: str,
+    user:  dict = Depends(require_auth),
+    client      = Depends(get_client),
+):
+    """Blank, printable confirmation for the customer to sign at the door.
+    Available before the delivery is marked delivered; the signed result is then
+    recorded with Proof of delivery."""
+    do = _first(
+        client.table("delivery_orders")
+        .select(
+            "*, customers(name, contact_name, address, phone), "
+            "delivery_order_items(description, sku, qty_ordered, qty_delivered), "
+            "sales_orders(order_number)"
+        )
+        .eq("do_number", do_number)
+    )
+    if not do:
+        raise HTTPException(status_code=404, detail=f"Delivery order {do_number} not found")
+    if do["status"] == "cancelled":
+        raise HTTPException(status_code=409, detail="This delivery was cancelled")
+
+    customer = do.get("customers") or {}
+    org      = _fetch_org(client, do["org_id"])
+    items = [
+        {
+            "description":   i.get("description"),
+            "sku":           i.get("sku"),
+            "qty_delivered": i.get("qty_delivered") or i.get("qty_ordered"),
+        }
+        for i in (do.get("delivery_order_items") or [])
+    ]
+    dc_number = "DC-" + do["do_number"].split("-", 1)[-1]
+
+    ctx = {
+        "blank": True,
+        "org": {
+            "name":    org.get("name", ""),
+            "address": org.get("address", ""),
+            "tax_id":  org.get("tax_id"),
+            "phone":   org.get("phone"),
+            "email":   org.get("email"),
+            "logo":    org.get("logo_url"),
+        },
+        "customer": {
+            "name":         customer.get("name", ""),
+            "contact_name": customer.get("contact_name"),
+            "address":      customer.get("address", ""),
+            "phone":        customer.get("phone"),
+        },
+        "doc_number":         dc_number,
+        "delivery_date":      do.get("delivery_date") or str(date.today()),
+        "delivery_order_ref": do["do_number"],
+        "order_ref":          (do.get("sales_orders") or {}).get("order_number"),
+        "delivery_address":   do.get("delivery_address"),
+        "items":              items,
+        "notes":              None,
+        "photo_refs":         [],
+        "doc_status":         "To be signed",
+        "doc_status_class":   "pending",
+    }
+
+    pdf_bytes = generate_delivery_confirmation_pdf(ctx)
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{dc_number}-form.pdf"'},
+    )
+
+
 @router.get("/delivery-confirmations/{dc_number}/pdf")
 async def get_delivery_confirmation_pdf(
     dc_number: str,

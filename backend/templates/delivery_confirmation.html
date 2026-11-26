@@ -53,10 +53,15 @@
         <td class="item-name">{{ item.description }}</td>
         <td class="item-sku">{{ item.sku }}</td>
         <td class="center">{{ item.qty_delivered }}</td>
+        {% if blank %}
+        <td class="center"><span class="fill-line" style="display:inline-block; min-width:46px;"></span></td>
+        <td class="center" style="white-space:nowrap;">&#9744; Good &nbsp; &#9744; Damaged</td>
+        {% else %}
         <td class="center">{{ item.qty_received }}</td>
         <td class="center">
           <span class="doc-status cond-{{ item.condition_class }}">{{ item.condition }}</span>
         </td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -65,7 +70,10 @@
   <!-- Notes / discrepancies -->
   <div class="doc-notes">
     <div class="doc-notes-label">Remarks / discrepancies</div>
-    {% if notes %}
+    {% if blank %}
+      <div style="height:22px; border-bottom:1px solid #D1D5DB;"></div>
+      <div style="height:22px; border-bottom:1px solid #D1D5DB;"></div>
+    {% elif notes %}
       {{ notes }}
     {% else %}
       <span style="color:#D1D5DB;">No discrepancies reported.</span>

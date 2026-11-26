@@ -209,6 +209,9 @@ export default function Delivery() {
                 <div className="im-row-actions">
                   <button className="im-btn-ghost" onClick={() => download(`/delivery-orders/${selected.do_number}/pdf`)}>↓ Delivery order</button>
                   {dc && <button className="im-btn-ghost" onClick={() => download(`/delivery-confirmations/${dc.dc_number}/pdf`)}>↓ Confirmation</button>}
+                  {!dc && selected.status !== 'cancelled' && (
+                    <button className="im-btn-ghost" onClick={() => download(`/delivery-orders/${selected.do_number}/confirmation-form/pdf`)}>↓ Confirmation form (to sign)</button>
+                  )}
                   {canProve && <button className="im-btn-ghost" onClick={() => startEdit(selected)}>Assign driver &amp; qty</button>}
                   {selected.status === 'pending' && (
                     <button className="im-btn-ghost" disabled={saving} onClick={() => setStatus(selected, 'dispatched')}>Out for delivery</button>
