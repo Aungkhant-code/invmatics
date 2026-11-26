@@ -319,6 +319,11 @@ async def dispatch_sales_order(
     Reduces qty_on_hand and releases qty_reserved for each line item.
     Records a 'sale' stock movement per product.
     """
+    return await dispatch_order(order_id, user, client)
+
+
+async def dispatch_order(order_id: UUID, user: dict, client):
+    """Shared by the Orders page and the Delivery page ('Out for delivery')."""
     org_id = user["org_id"]
 
     order = _first(

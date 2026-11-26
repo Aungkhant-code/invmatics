@@ -18,8 +18,19 @@ from org_sync import ensure_org_name
 from auth import require_auth, get_client, db_user_id
 from models import DeliveryOrderCreate, DeliveryOrderUpdate
 from pdf_service import generate_delivery_order_pdf, generate_delivery_confirmation_pdf
+from orders import dispatch_order
 
 router = APIRouter()
+
+
+async def _ensure_order_dispatched(client, user, sales_order_id):
+    """Goods leaving for the customer means the sales order is dispatched: stock comes off
+    the shelf and the order moves on. Raises (400) if there isn't enough stock."""
+    if not sales_order_id:
+        return
+    o = _first(client.table("sales_orders").select("id, status").eq("id", str(sales_order_id)))
+    if o and o["status"] == "confirmed":
+        await dispatch_order(UUID(str(sales_order_id)), user, client)
 
 
 def _next_number(org_id: str, seq_type: str) -> str:
@@ -176,13 +187,16 @@ async def update_delivery_order(
 
     current = _first(
         client.table("delivery_orders")
-        .select("id, status, delivery_order_items(id, qty_ordered)")
+        .select("id, status, sales_order_id, delivery_order_items(id, qty_ordered)")
         .eq("id", str(do_id))
     )
     if not current:
         raise HTTPException(status_code=404, detail="Delivery order not found")
     if current["status"] in ("delivered", "confirmed", "cancelled"):
         raise HTTPException(status_code=409, detail=f"A {current['status']} delivery can't be edited")
+
+    if updates.get("status") == "dispatched" and current["status"] == "pending":
+        await _ensure_order_dispatched(client, user, current.get("sales_order_id"))
 
     if lines is not None:
         ordered = {str(i["id"]): int(i["qty_ordered"]) for i in current.get("delivery_order_items") or []}
@@ -270,6 +284,9 @@ async def submit_proof(
         raise HTTPException(status_code=409, detail=f"This delivery is already {do['status']}")
     if _first(client.table("delivery_confirmations").select("id").eq("delivery_order_id", str(do_id))):
         raise HTTPException(status_code=409, detail="Proof of delivery was already submitted")
+
+    # Skipped "Out for delivery"? Dispatch the order now so stock and status stay right.
+    await _ensure_order_dispatched(client, user, do.get("sales_order_id"))
 
     now = datetime.now(timezone.utc).isoformat()
     dc = db_admin.table("delivery_confirmations").insert({
